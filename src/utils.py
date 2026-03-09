@@ -1,7 +1,6 @@
 import re
 import select
 import sys
-from pydoc import text
 
 import cv2
 import numpy as np
@@ -34,6 +33,7 @@ def preprocess_image_for_ocr(pic):
     if pic is None:
         return None
 
+    # 转换灰度图
     gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
 
     # 1. 放大图像（在过滤前放大，利用插值算法让边缘更平滑）

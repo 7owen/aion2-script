@@ -22,6 +22,8 @@ class Skill:
         time_consumption: float = 0.3,
         press_holdon: float | None = None,
         impact_time: float = 0,
+        press_count: int = 1,
+        press_interval: float | None = None,
     ):
         self.name = name
         self.kmDriver = km_driver
@@ -31,6 +33,8 @@ class Skill:
         self.time_consumption = time_consumption
         self.press_holdon = press_holdon
         self.impact_time = impact_time
+        self.press_count = press_count
+        self.press_interval = press_interval
         self.last_used_at = float("-inf")
         self.impact_until = float("-inf")
         if self.kmDriver is None:
@@ -69,10 +73,14 @@ class Skill:
         now = time.monotonic()
         self.last_used_at = now
         self.impact_until = now + self.impact_time
-        if self.press_holdon:
-            self.kmDriver.key_press(self.key, int(self.press_holdon * 1000))
-        else:
-            self.kmDriver.key_press(self.key)
+
+        for _ in range(self.press_count):
+            if self.press_holdon:
+                self.kmDriver.key_press(self.key, int(self.press_holdon * 1000))
+            else:
+                self.kmDriver.key_press(self.key)
+            if self.press_interval:
+                time.sleep(self.press_interval)
 
         time.sleep(self.time_consumption)
         return True
@@ -205,17 +213,21 @@ class Aion2Role(ABC):
         self.skill_sifht.use(self.target_distance)
         self.kmDriver.key_up(key)
 
+    @abstractmethod
+    def _need_random_jump_distance(self) -> bool:
+        pass
+
     def _random_jump(self):
-        if self.target_distance == -1 or self.target_distance <= 20:
-            return
-        if random.randint(0, 3) != 1:
+        if not self._need_random_jump_distance():
             return
         self.skill_space.use(self.target_distance)
 
+    @abstractmethod
+    def _need_random_walk_distance(self) -> bool:
+        pass
+
     def _random_walk(self):
-        if self.target_distance == -1 or self.target_distance > 20:
-            return
-        if random.randint(0, 3) != 1:
+        if not self._need_random_walk_distance():
             return
         key = random.choice(self.keys)
         self.kmDriver.key_down(key)
@@ -231,6 +243,10 @@ class Aion2Role(ABC):
         time.sleep(0.2)
 
     def extraction(self):
+        self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
+        time.sleep(random.random())
+        self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
+        time.sleep(random.random())
         self.kmDriver.key_press(kmbox_net.KEY_I)
         time.sleep(0.5)
         self.kmDriver.human_mouse_move_to(
@@ -260,10 +276,10 @@ class Aion2Role(ABC):
     def resurrect(self, btn_box):
         if btn_box is None:
             return
-        print(f"resurrect: {btn_box}")
-        print(
-            f"{random.randint(btn_box[0] + 5, btn_box[2] - 5)}, {random.randint(btn_box[1] + 5, btn_box[3] - 5)}"
-        )
+        # print(f"resurrect: {btn_box}")
+        # print(
+        #     f"{random.randint(btn_box[0] + 5, btn_box[2] - 5)}, {random.randint(btn_box[1] + 5, btn_box[3] - 5)}"
+        # )
         self.kmDriver.human_mouse_move_to(
             random.randint(btn_box[0] + 5, btn_box[2] - 5),
             random.randint(btn_box[1] + 5, btn_box[3] - 5),

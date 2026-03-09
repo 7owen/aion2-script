@@ -181,17 +181,18 @@ class Aion2Bot(object):
         """状态机核心逻辑：根据当前状态执行相应动作。"""
         if self.state == State.IDLE:
             self.role.buff()
-            if self.role.need_extract:
-                self.state = State.EXTRACT
+            if self.resurrection_box:
+                self.state = State.DEATH
             elif self.role.has_target:
                 self.state = State.FIGHT
-            elif self.resurrection_box:
-                self.state = State.DEATH
+            elif self.role.need_extract:
+                self.state = State.EXTRACT
             else:
                 # 尝试搜寻，若次数耗尽则旋转视角
                 if self.cur_try_combat_count < self.config.runtime.max_try_combat_count:
                     self.cur_try_combat_count += 1
                     self.role.search()
+                    time.sleep(1)
                 else:
                     self.cur_try_combat_count = 0
                     self.role.rotate_view()
@@ -200,14 +201,18 @@ class Aion2Bot(object):
                 self.role.fight()
             else:
                 self.role.loot()
-                self.state = State.IDLE
+                self.set_idle_state()
         elif self.state == State.EXTRACT:
             self.role.extraction()
-            self.state = State.IDLE
+            self.set_idle_state()
         elif self.state == State.DEATH:
             self.role.resurrect(self.resurrection_box)
             self.resurrection_box = None
-            self.state = State.IDLE
+            self.set_idle_state()
+
+    def set_idle_state(self):
+        self.state = State.IDLE
+        self.cur_try_combat_count = 0
 
     def get_health_value(self, frame):
         """识别屏幕特定区域的生命值 OCR 文本并转化为百分比。"""

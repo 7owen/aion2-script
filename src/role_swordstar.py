@@ -1,4 +1,5 @@
 import random
+import time
 
 import kmbox_net
 
@@ -26,8 +27,8 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=20,
             range=4,
-            time_consumption=2,
-            impact_time=3,
+            time_consumption=1.5,
+            impact_time=4,
         )
         self.skill_3 = Skill(
             "粉碎波动",
@@ -35,14 +36,11 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=20,
             range=4,
-            time_consumption=2,
+            press_count=2,
+            press_interval=0.5,
         )
         self.skill_4 = Skill(
-            "破灭猛击",
-            kmbox_net.KEY_4,
-            self.kmDriver,
-            cooldown=30,
-            time_consumption=1,
+            "破灭猛击", kmbox_net.KEY_4, self.kmDriver, cooldown=30, time_consumption=1
         )
         self.skill_5 = Skill(
             "愤怒波动",
@@ -50,14 +48,14 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=60,
             range=4,
-            time_consumption=1,
+            impact_time=3,
         )
         self.skill_6 = Skill(
             "强袭一击",
             kmbox_net.KEY_6,
             self.kmDriver,
             cooldown=120,
-            time_consumption=1,
+            impact_time=3,
         )
         self.skill_7 = Skill(
             "毅力",
@@ -73,14 +71,15 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=5,
             range=4,
-            time_consumption=2,
+            impact_time=3,
         )
         self.skill_q2 = Skill(
             "突进一击",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=20,
+            cooldown=10,
             range=10,
+            impact_time=3,
             time_consumption=1,
         )
         self.skill_e1 = Skill(
@@ -89,7 +88,7 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=5,
             range=4,
-            time_consumption=2,
+            impact_time=3,
         )
         self.skill_e2 = Skill(
             "下盘击",
@@ -97,22 +96,17 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=5,
             range=4,
-            time_consumption=2,
         )
         self.skill_r = Skill(
             "锐利一击",
             kmbox_net.KEY_R,
             self.kmDriver,
-            cooldown=0.2,
-            time_consumption=2,
         )
         self.skill_t = Skill(
             "斩断猛击",
             kmbox_net.KEY_T,
             self.kmDriver,
-            cooldown=0.2,
             range=4,
-            time_consumption=2,
         )
 
     def search(self):
@@ -128,50 +122,92 @@ class Aion2RoleSwordStar(Aion2Role):
         )
 
     def fight(self):
-        if self.check_low_health():
-            self.dodge()
-            self.heal()
+        self._random_jump()
 
-        if self.check_is_close():
-            self.dodge()
+        self._random_walk()
 
-        if self.skill_e2.is_can_use(self.target_distance) and (
-            self.skill_2.is_impacting() or self.skill_q2.is_impacting()
-        ):
-            self.skill_e2.use(self.target_distance)
+        def check_and_heal(target_distance):
+            if self.check_low_health():
+                return self.heal() and self._dodge()
+            return False
 
-        if self.skill_q1.is_can_use(self.target_distance) and (
-            self.skill_2.is_impacting() or self.skill_q2.is_impacting()
-        ):
-            self.skill_q1.use(self.target_distance)
+        def check_and_dodge(target_distance):
+            if self.check_is_close():
+                return self.dodge()
+            return False
 
-        if (
-            self.skill_q2.is_can_use(self.target_distance)
-            and self.skill_sifht.is_impacting()
-        ):
-            self.skill_q2.use(self.target_distance)
+        # 释放下盘击
+        def com_skil1(target_distance):
+            if self.skill_e2.is_can_use(target_distance) and (
+                self.skill_2.is_impacting()
+                or self.skill_q2.is_impacting()
+                or self.skill_6.is_impacting()
+                or self.skill_5.is_impacting()
+            ):
+                return self.skill_e2.use(target_distance)
+            return False
 
-        if self.skill_e1.is_can_use(self.target_distance) and random.randint(0, 4) == 0:
-            self.skill_e1.use(self.target_distance)
+        def com_skil4(target_distance):
+            if self.skill_q1.is_can_use(target_distance) and (
+                self.skill_2.is_impacting()
+                or self.skill_q2.is_impacting()
+                or self.skill_6.is_impacting()
+                or self.skill_5.is_impacting()
+            ):
+                return self.skill_q1.use(target_distance)
+            return False
+
+        def com_skil2(target_distance):
+            if self.skill_q2.is_can_use(self.target_distance):
+                self._dodge()
+                self.skill_q2.use(target_distance)
+
+        # 格挡无法检测，只要冷却就1/2机率按键释放
+        def com_skil3(target_distance):
+            if self.skill_e1.is_can_use(target_distance) and random.randint(0, 1) == 0:
+                return self.skill_e1.use(target_distance)
+            return False
 
         skills_to_use = [
-            self.skill_1,
-            self.skill_2,
-            self.skill_3,
-            self.skill_4,
-            self.skill_5,
-            self.skill_6,
+            check_and_heal,
+            check_and_dodge,
+            com_skil4,
+            com_skil1,
+            com_skil2,
+            com_skil3,
+            self.skill_q2.use,
         ]
-        random.shuffle(skills_to_use)
-        for skill in skills_to_use:
-            skill.use(self.target_distance)
+        skills_to_use2 = [
+            self.skill_1.use,
+            self.skill_2.use,
+            self.skill_3.use,
+            self.skill_5.use,
+            self.skill_6.use,
+            self.skill_t.use,
+        ]
+        random.shuffle(skills_to_use2)
+        for skill_use in skills_to_use + skills_to_use2:
+            if skill_use(self.target_distance):
+                return
 
-        if random.randint(0, 1) == 0:
-            self.skill_t.use(self.target_distance)
+        self.skill_1.use(self.target_distance)
 
     def buff(self):
         self.skill_7.use(self.target_distance)
 
     def dodge(self):
-        if self.skill_q2.is_can_use(self.target_distance):
-            self._dodge()
+        pass
+
+    def _need_random_jump_distance(self):
+        if self.target_distance == -1 or self.target_distance <= 20:
+            return False
+        if random.randint(0, 3) != 1:
+            return False
+        return True
+
+    def _need_random_walk_distance(self):
+        if self.target_distance == -1 or self.target_distance > 4:
+            return False
+        if random.randint(0, 3) != 1:
+            return False
+        return True

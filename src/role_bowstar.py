@@ -97,7 +97,6 @@ class Aion2RoleBowStar(Aion2Role):
         if self.check_low_health():
             _ = self.heal() and self._dodge()
 
-        time.sleep(0.5)
         _ = (
             self.skill_5.use(self.target_distance)
             or self.skill_1.use(self.target_distance)
@@ -155,11 +154,8 @@ class Aion2RoleBowStar(Aion2Role):
                 return self.skill_4.use(target_distance)
             return False
 
-        # 暴击无法检测，只要冷却就1/2机率按键释放
-        def com_skil3(target_distance):
-            if self.skill_q2.is_can_use(target_distance) and random.randint(0, 1) == 0:
-                return self.skill_q2.use(target_distance)
-            return False
+        if self.skill_q2.is_can_use(self.target_distance) and random.randint(0, 1) == 0:
+            self.skill_q2.use(self.target_distance)
 
         skills_to_use = [
             check_and_heal,
@@ -167,7 +163,6 @@ class Aion2RoleBowStar(Aion2Role):
             self.skill_e1.use,
             com_skil1,
             com_skil2,
-            com_skil3,
             com_skil4,
         ]
         skills_to_use2 = [
@@ -178,8 +173,25 @@ class Aion2RoleBowStar(Aion2Role):
         random.shuffle(skills_to_use2)
         for skill_use in skills_to_use + skills_to_use2:
             if skill_use(self.target_distance):
-                break
+                return
+
+        self.skill_1.use(self.target_distance)
 
     def buff(self):
         pass
         # self.skill_7.use(self.target_distance)
+        #
+
+    def _need_random_jump_distance(self):
+        if self.target_distance == -1 or self.target_distance <= 20:
+            return False
+        if random.randint(0, 3) != 1:
+            return False
+        return True
+
+    def _need_random_walk_distance(self):
+        if self.target_distance == -1 or self.target_distance > 20:
+            return False
+        if random.randint(0, 3) != 1:
+            return False
+        return True
