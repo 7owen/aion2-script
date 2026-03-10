@@ -90,7 +90,7 @@ def extract_text_via_ocr(
 
     try:
         ocr_result = ocr_reader.readtext(processed_pic, detail=0, allowlist=allowlist)
-        print(ocr_result)
+        # print(ocr_result)
         text_combined = "".join([str(t) for t in ocr_result]).replace(",", "")
         # print(text_combined)
 

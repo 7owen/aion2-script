@@ -27,7 +27,7 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=20,
             range=4,
-            time_consumption=1.5,
+            time_consumption=3,
             impact_time=4,
         )
         self.skill_3 = Skill(
@@ -36,6 +36,7 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=20,
             range=4,
+            time_consumption=1,
             press_count=2,
             press_interval=0.5,
         )
@@ -49,6 +50,7 @@ class Aion2RoleSwordStar(Aion2Role):
             cooldown=60,
             range=4,
             impact_time=3,
+            time_consumption=0.5,
         )
         self.skill_6 = Skill(
             "强袭一击",
@@ -56,6 +58,7 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=120,
             impact_time=3,
+            time_consumption=0.5,
         )
         self.skill_7 = Skill(
             "毅力",
@@ -69,15 +72,16 @@ class Aion2RoleSwordStar(Aion2Role):
             "空中结缚",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=5,
+            cooldown=45,
             range=4,
             impact_time=3,
+            time_consumption=0.5,
         )
         self.skill_q2 = Skill(
             "突进一击",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=10,
+            cooldown=20,
             range=10,
             impact_time=3,
             time_consumption=1,
@@ -86,9 +90,10 @@ class Aion2RoleSwordStar(Aion2Role):
             "脚踝斩",
             kmbox_net.KEY_E,
             self.kmDriver,
-            cooldown=5,
+            cooldown=10,
             range=4,
             impact_time=3,
+            time_consumption=0.5,
         )
         self.skill_e2 = Skill(
             "下盘击",
@@ -96,6 +101,7 @@ class Aion2RoleSwordStar(Aion2Role):
             self.kmDriver,
             cooldown=5,
             range=4,
+            time_consumption=0.5,
         )
         self.skill_r = Skill(
             "锐利一击",

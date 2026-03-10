@@ -186,19 +186,13 @@ class Aion2Role(ABC):
             attr_value = getattr(self, attr_name)
             if isinstance(attr_value, Skill):
                 is_off_cd = attr_value.is_off_cooldown()
-                status_color = "green" if is_off_cd else "red"
                 if is_off_cd:
-                    cd_parts.append(f"[{status_color}]{attr_value.name}[/]")
+                    cd_parts.append(f"{attr_value.name}")
                 else:
                     remaining = attr_value.get_remaining_cd()
-                    cd_parts.append(
-                        f"[{status_color}]{attr_value.name}({remaining:.1f}s)[/]"
-                    )
+                    cd_parts.append(f"{attr_value.name}({remaining:.1f}s)")
 
         return " | ".join(cd_parts)
-
-    def get_recent_skills(self):
-        return " -> ".join([f"[bold cyan]{name}[/]" for name in Skill.recent_skills])
 
     keys = [
         kmbox_net.KEY_A,
@@ -210,7 +204,9 @@ class Aion2Role(ABC):
     def _dodge(self):
         key = random.choice(self.keys)
         self.kmDriver.key_down(key)
+        time.sleep(0.2)
         self.skill_sifht.use(self.target_distance)
+        time.sleep(0.2)
         self.kmDriver.key_up(key)
 
     @abstractmethod

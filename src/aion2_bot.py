@@ -9,9 +9,9 @@ import easyocr
 from bot_config import BotConfig, OcrConfig
 from console import console as console
 from km_driver import KmboxDriver
-from role_bowstar import Aion2RoleBowStar as Role
 
-# from role_swordstar import Aion2RoleSwordStar as Role
+# from role_bowstar import Aion2RoleBowStar as Role
+from role_swordstar import Aion2RoleSwordStar as Role
 from utils import (
     crop_frame,
     extract_text_via_ocr,
@@ -86,10 +86,10 @@ class Aion2Bot(object):
                     break
 
                 if self.is_paused:
-                    console.set_note_msg("[red]已暂停脚本[/]")
+                    console.set_note_msg("已暂停脚本")
                 else:
-                    self.update_role(loop_start)
-                    self.action()
+                    if self.update_role(loop_start):
+                        self.action()
 
                 self._render_dashboard()
 
@@ -123,19 +123,16 @@ class Aion2Bot(object):
         if err_msg:
             console.set_err_msg(err_msg)
 
-    def update_role(self, now):
+    def update_role(self, now) -> bool:
         """执行视觉更新周期：读取画面、识别生命值、检测目标并计算距离。"""
         self.role.tick()
 
         frame = self.video_capture.read_frame()
         if frame is None:
             self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
-            return
+            return False
 
         self.resurrection_box = self.get_resurrection_box(frame)
-
-        # ret = perfect_match_and_locate("src/images/resurrection-btn.png", frame, 0.02)
-        # print(ret)
 
         if int(now) % 3 == 1:
             # 更新血量感知
@@ -176,6 +173,8 @@ class Aion2Bot(object):
                 console.set_err_msg(dist_err)
         else:
             self.role.target_distance = -1
+
+        return True
 
     def action(self):
         """状态机核心逻辑：根据当前状态执行相应动作。"""
@@ -287,11 +286,11 @@ class Aion2Bot(object):
 
     def get_target_box_v2(self, frame):
         return perfect_match_and_locate(
-            "src/images/top-target-right-icon.png", frame, 0.02
+            "src/images/top-target-right-icon.png", frame, 0.1
         )
 
     def get_resurrection_box(self, frame):
-        return perfect_match_and_locate("src/images/resurrection-btn.png", frame, 0.03)
+        return perfect_match_and_locate("src/images/resurrection-btn.png", frame, 0.1)
 
 
 def main():
