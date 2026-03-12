@@ -4,10 +4,10 @@ import time
 import kmbox_net
 
 from bot_config import RoleConfig
-from role import Aion2Role, Skill
+from role import Role, Skill
 
 
-class Aion2RoleSwordStar(Aion2Role):
+class RoleSwordStar(Role):
     def __init__(
         self,
         role_config: RoleConfig,
@@ -68,24 +68,6 @@ class Aion2RoleSwordStar(Aion2Role):
             time_consumption=1,
         )
 
-        self.skill_q1 = Skill(
-            "空中结缚",
-            kmbox_net.KEY_Q,
-            self.kmDriver,
-            cooldown=45,
-            range=4,
-            impact_time=3,
-            time_consumption=0.5,
-        )
-        self.skill_q2 = Skill(
-            "突进一击",
-            kmbox_net.KEY_Q,
-            self.kmDriver,
-            cooldown=20,
-            range=10,
-            impact_time=3,
-            time_consumption=1,
-        )
         self.skill_e1 = Skill(
             "脚踝斩",
             kmbox_net.KEY_E,
@@ -93,14 +75,6 @@ class Aion2RoleSwordStar(Aion2Role):
             cooldown=10,
             range=4,
             impact_time=3,
-            time_consumption=0.5,
-        )
-        self.skill_e2 = Skill(
-            "下盘击",
-            kmbox_net.KEY_E,
-            self.kmDriver,
-            cooldown=5,
-            range=4,
             time_consumption=0.5,
         )
         self.skill_r = Skill(
@@ -113,6 +87,47 @@ class Aion2RoleSwordStar(Aion2Role):
             kmbox_net.KEY_T,
             self.kmDriver,
             range=4,
+        )
+
+        self.skill_q2 = Skill(
+            "突进一击",
+            kmbox_net.KEY_Q,
+            self.kmDriver,
+            cooldown=20,
+            range=6,  # 实际范围是10米，为了走进再触发技能
+            impact_time=3,
+            time_consumption=1,
+        )
+
+        self.skill_q1 = Skill(
+            "空中结缚",
+            kmbox_net.KEY_Q,
+            self.kmDriver,
+            cooldown=45,
+            range=4,
+            impact_time=3,
+            time_consumption=0.5,
+            precondition_skills=[
+                self.skill_2,
+                self.skill_q2,
+                self.skill_6,
+                self.skill_5,
+            ],
+        )
+
+        self.skill_e2 = Skill(
+            "下盘击",
+            kmbox_net.KEY_E,
+            self.kmDriver,
+            cooldown=5,
+            range=4,
+            time_consumption=0.5,
+            precondition_skills=[
+                self.skill_2,
+                self.skill_q2,
+                self.skill_6,
+                self.skill_5,
+            ],
         )
 
     def search(self):
@@ -142,34 +157,13 @@ class Aion2RoleSwordStar(Aion2Role):
                 return self.dodge()
             return False
 
-        # 释放下盘击
-        def com_skil1(target_distance):
-            if self.skill_e2.is_can_use(target_distance) and (
-                self.skill_2.is_impacting()
-                or self.skill_q2.is_impacting()
-                or self.skill_6.is_impacting()
-                or self.skill_5.is_impacting()
-            ):
-                return self.skill_e2.use(target_distance)
-            return False
-
-        def com_skil4(target_distance):
-            if self.skill_q1.is_can_use(target_distance) and (
-                self.skill_2.is_impacting()
-                or self.skill_q2.is_impacting()
-                or self.skill_6.is_impacting()
-                or self.skill_5.is_impacting()
-            ):
-                return self.skill_q1.use(target_distance)
-            return False
-
-        def com_skil2(target_distance):
+        def com_skil_q2(target_distance):
             if self.skill_q2.is_can_use(self.target_distance):
                 self._dodge()
                 self.skill_q2.use(target_distance)
 
         # 格挡无法检测，只要冷却就1/2机率按键释放
-        def com_skil3(target_distance):
+        def com_skil_e1(target_distance):
             if self.skill_e1.is_can_use(target_distance) and random.randint(0, 1) == 0:
                 return self.skill_e1.use(target_distance)
             return False
@@ -177,10 +171,10 @@ class Aion2RoleSwordStar(Aion2Role):
         skills_to_use = [
             check_and_heal,
             check_and_dodge,
-            com_skil4,
-            com_skil1,
-            com_skil2,
-            com_skil3,
+            self.skill_q1.use,
+            self.skill_e2.use,
+            com_skil_q2,
+            com_skil_e1,
             self.skill_q2.use,
         ]
         skills_to_use2 = [

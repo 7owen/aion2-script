@@ -1,3 +1,4 @@
+import random
 import sys
 import termios
 import time
@@ -10,8 +11,8 @@ from bot_config import BotConfig, OcrConfig
 from console import console as console
 from km_driver import KmboxDriver
 
-# from role_bowstar import Aion2RoleBowStar as Role
-from role_swordstar import Aion2RoleSwordStar as Role
+# from role_bowstar import RoleBowStar as Role
+from role_swordstar import RoleSwordStar as Role
 from utils import (
     crop_frame,
     extract_text_via_ocr,
@@ -95,7 +96,7 @@ class Aion2Bot(object):
 
                 # 限制循环频率以控制 CPU/GPU 负载
                 elapsed = time.monotonic() - loop_start
-                wait_time = period - elapsed
+                wait_time = random.uniform(period - 0.1, period + 0.1) - elapsed
                 if wait_time > 0:
                     time.sleep(wait_time)
 
@@ -149,7 +150,7 @@ class Aion2Bot(object):
             else:
                 console.set_err_msg(mental_err)
 
-        # 视觉目标检测
+        # 视觉目标检测, 裁剪游戏画面顶部区域用于识别目标和距离，减少算力开销
         target_frame = crop_frame(
             frame,
             x_offset=self.config.vision.frame_crop_x_offset,
@@ -286,7 +287,7 @@ class Aion2Bot(object):
 
     def get_target_box_v2(self, frame):
         return perfect_match_and_locate(
-            "src/images/top-target-right-icon.png", frame, 0.1
+            "src/images/top-target-right-icon.png", frame, 0.05
         )
 
     def get_resurrection_box(self, frame):

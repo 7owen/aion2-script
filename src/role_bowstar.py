@@ -4,10 +4,10 @@ import time
 import kmbox_net
 
 from bot_config import RoleConfig
-from role import Aion2Role, Skill
+from role import Role, Skill
 
 
-class Aion2RoleBowStar(Aion2Role):
+class RoleBowStar(Role):
     def __init__(
         self,
         role_config: RoleConfig,
@@ -32,14 +32,6 @@ class Aion2RoleBowStar(Aion2Role):
             cooldown=20,
             range=20,
             time_consumption=1,
-        )
-        self.skill_4 = Skill(
-            "瞄准箭",
-            kmbox_net.KEY_4,
-            self.kmDriver,
-            cooldown=20,
-            range=20,
-            press_holdon=1.5,
         )
         self.skill_5 = Skill(
             "箭失风暴", kmbox_net.KEY_5, self.kmDriver, cooldown=60, impact_time=10
@@ -68,9 +60,6 @@ class Aion2RoleBowStar(Aion2Role):
             time_consumption=0.5,
         )
 
-        self.skill_q1 = Skill(
-            "破裂箭", kmbox_net.KEY_Q, self.kmDriver, cooldown=30, range=20
-        )
         self.skill_q2 = Skill(
             "利锥箭", kmbox_net.KEY_Q, self.kmDriver, cooldown=5, range=20
         )
@@ -89,6 +78,24 @@ class Aion2RoleBowStar(Aion2Role):
             cooldown=3,
             range=20,
             impact_time=5,
+            precondition_skills=[self.skill_e1],
+        )
+        self.skill_q1 = Skill(
+            "破裂箭",
+            kmbox_net.KEY_Q,
+            self.kmDriver,
+            cooldown=30,
+            range=20,
+            precondition_skills=[self.skill_1, self.skill_5],
+        )
+        self.skill_4 = Skill(
+            "瞄准箭",
+            kmbox_net.KEY_4,
+            self.kmDriver,
+            cooldown=20,
+            range=20,
+            press_holdon=1.5,
+            precondition_skills=[self.skill_e1],
         )
         self.skill_r = Skill("狙击", kmbox_net.KEY_R, self.kmDriver)
         self.skill_t = Skill("速射", kmbox_net.KEY_T, self.kmDriver, range=20)
@@ -125,35 +132,6 @@ class Aion2RoleBowStar(Aion2Role):
                 return self.dodge()
             return False
 
-        # 释放压制箭
-        def com_skil1(target_distance):
-            if (
-                self.skill_e2.is_can_use(target_distance)
-                and self.skill_e1.is_impacting()
-            ):
-                time.sleep(0.5)
-                return self.skill_e2.use(target_distance)
-            return False
-
-        # 释放破裂箭
-        def com_skil2(target_distance):
-            if self.skill_q1.is_can_use(target_distance) and (
-                self.skill_1.is_impacting() or self.skill_5.is_impacting()
-            ):
-                time.sleep(0.5)
-                return self.skill_q1.use(target_distance)
-            return False
-
-        # 标靶状态时才释放瞄准箭
-        def com_skil4(target_distance):
-            if (
-                self.skill_4.is_can_use(target_distance)
-                and self.skill_e1.is_impacting()
-            ):
-                time.sleep(0.5)
-                return self.skill_4.use(target_distance)
-            return False
-
         if self.skill_q2.is_can_use(self.target_distance) and random.randint(0, 1) == 0:
             self.skill_q2.use(self.target_distance)
 
@@ -161,9 +139,9 @@ class Aion2RoleBowStar(Aion2Role):
             check_and_heal,
             check_and_dodge,
             self.skill_e1.use,
-            com_skil1,
-            com_skil2,
-            com_skil4,
+            self.skill_e2.use,
+            self.skill_q1.use,
+            self.skill_4.use,
         ]
         skills_to_use2 = [
             self.skill_2.use,

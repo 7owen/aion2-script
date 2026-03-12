@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from role import Aion2Role
+    from role import Role
 
 
 class StateConsole:
@@ -23,7 +23,7 @@ class StateConsole:
     def set_note_msg(self, note_msg: str):
         self.note_msg = note_msg
 
-    def render_dashboard(self, state_str, role: "Aion2Role"):
+    def render_dashboard(self, state_str, role: "Role"):
         mouse_driver = getattr(role, "kmDriver", None)
         mouse_x = "-"
         mouse_y = "-"

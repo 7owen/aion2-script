@@ -1,3 +1,4 @@
+import random
 import re
 import select
 import sys
@@ -37,7 +38,7 @@ def preprocess_image_for_ocr(pic):
     gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
 
     # 1. 放大图像（在过滤前放大，利用插值算法让边缘更平滑）
-    zoomed = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    zoomed = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
     # # 2. 转换到 HSV 颜色空间进行颜色提取
     # hsv = cv2.cvtColor(zoomed, cv2.COLOR_BGR2HSV)
@@ -164,7 +165,7 @@ def perfect_match_and_locate(template_path, target_frame, tolerance=0.0):
     """
     模板从文件读取，目标图直接使用 cv2.VideoCapture(...).read() 返回的 frame。
     """
-    img_template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+    img_template = cv2.imread(template_path, cv2.IMREAD_UNCHANGED)
     if img_template is None:
         print("错误：无法读取模板图片，请检查路径。")
         return None
@@ -178,10 +179,22 @@ def perfect_match_and_locate(template_path, target_frame, tolerance=0.0):
     else:
         img_target = target_frame
 
-    return pixel_perfect_match_and_locate(img_template, img_target, tolerance)
+    img_mask = None
+    if len(img_template.shape) == 3 and img_template.shape[2] == 4:
+        img_mask = img_template[:, :, 3]
+        img_template = cv2.cvtColor(img_template[:, :, :3], cv2.COLOR_BGR2GRAY)
+    elif len(img_template.shape) == 3:
+        img_template = cv2.cvtColor(img_template, cv2.COLOR_BGR2GRAY)
+
+    return pixel_perfect_match_and_locate(img_template, img_target, tolerance, img_mask)
 
 
-def pixel_perfect_match_and_locate(img_template, img_target, tolerance=0.0):
+def pixel_perfect_match_and_locate(
+    img_template,
+    img_target,
+    tolerance=0.0,
+    img_mask=None,
+):
     """
     使用像素级完全匹配定位模板位置。
     - tolerance=0.0: 仅接受完全一致的像素块
@@ -197,7 +210,15 @@ def pixel_perfect_match_and_locate(img_template, img_target, tolerance=0.0):
         return None
 
     # TM_SQDIFF_NORMED: 值越小越好，完全相同则 min_val 为 0
-    result = cv2.matchTemplate(img_target, img_template, cv2.TM_SQDIFF_NORMED)
+    if img_mask is not None:
+        result = cv2.matchTemplate(
+            img_target,
+            img_template,
+            cv2.TM_SQDIFF_NORMED,
+            mask=img_mask,
+        )
+    else:
+        result = cv2.matchTemplate(img_target, img_template, cv2.TM_SQDIFF_NORMED)
     min_val, _, min_loc, _ = cv2.minMaxLoc(result)
     # print(f"像素匹配最小归一化误差: {min_val:.8f}")
 

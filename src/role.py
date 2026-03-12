@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 import time
 from abc import ABC, abstractmethod
@@ -10,8 +12,6 @@ from km_driver import KmboxDriver
 
 
 class Skill:
-    recent_skills: list[str] = []
-
     def __init__(
         self,
         name: str,
@@ -24,6 +24,7 @@ class Skill:
         impact_time: float = 0,
         press_count: int = 1,
         press_interval: float | None = None,
+        precondition_skills: list[Skill] | None = None,
     ):
         self.name = name
         self.kmDriver = km_driver
@@ -35,6 +36,7 @@ class Skill:
         self.impact_time = impact_time
         self.press_count = press_count
         self.press_interval = press_interval
+        self.precondition_skill = precondition_skills or []
         self.last_used_at = float("-inf")
         self.impact_until = float("-inf")
         if self.kmDriver is None:
@@ -54,10 +56,11 @@ class Skill:
     def is_can_use(self, target_distance: int) -> bool:
         if not self.is_off_cooldown():
             return False
-        if self.rang is None:
+        if self.rang and target_distance > self.rang:
+            return False
+        if not self.precondition_skill:
             return True
-
-        return target_distance != -1 and self.rang >= target_distance
+        return any(skill.is_impacting() for skill in self.precondition_skill)
 
     def is_impacting(self) -> bool:
         return time.monotonic() < self.impact_until
@@ -66,27 +69,27 @@ class Skill:
         if not self.is_can_use(target_distance):
             return False
 
-        Skill.recent_skills.append(self.name)
-        if len(Skill.recent_skills) > 10:
-            Skill.recent_skills.pop(0)
-
         now = time.monotonic()
         self.last_used_at = now
         self.impact_until = now + self.impact_time
 
-        for _ in range(self.press_count):
-            if self.press_holdon:
-                self.kmDriver.key_press(self.key, int(self.press_holdon * 1000))
-            else:
-                self.kmDriver.key_press(self.key)
-            if self.press_interval:
+        for i in range(self.press_count):
+            self._press_once()
+            if self.press_interval and i < self.press_count - 1:
                 time.sleep(self.press_interval)
 
         time.sleep(self.time_consumption)
         return True
 
+    def _press_once(self) -> None:
+        hold_ms = int(self.press_holdon * 1000) if self.press_holdon else None
+        if hold_ms is not None:
+            self.kmDriver.key_press(self.key, hold_ms)
+        else:
+            self.kmDriver.key_press(self.key)
 
-class Aion2Role(ABC):
+
+class Role(ABC):
     def __init__(
         self,
         km_driver: KmboxDriver,
