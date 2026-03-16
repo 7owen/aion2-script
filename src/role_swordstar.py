@@ -18,36 +18,40 @@ class RoleSwordStar(Role):
             "跳跃攻击",
             kmbox_net.KEY_1,
             self.kmDriver,
-            cooldown=15,
+            cooldown=15 + 1,
             time_consumption=1,
         )
+
         self.skill_2 = Skill(
             "蹂躏剑",
             kmbox_net.KEY_2,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=4,
-            time_consumption=3,
-            impact_time=4,
+            time_consumption=1.5,
+            impact_time=3,
         )
+
         self.skill_3 = Skill(
             "粉碎波动",
             kmbox_net.KEY_3,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=4,
-            time_consumption=1,
+            time_consumption=2,
             press_count=2,
             press_interval=0.5,
         )
+
         self.skill_4 = Skill(
             "破灭猛击", kmbox_net.KEY_4, self.kmDriver, cooldown=30, time_consumption=1
         )
+
         self.skill_5 = Skill(
             "愤怒波动",
             kmbox_net.KEY_5,
             self.kmDriver,
-            cooldown=60,
+            cooldown=60 + 1,
             range=4,
             impact_time=3,
             time_consumption=0.5,
@@ -56,32 +60,37 @@ class RoleSwordStar(Role):
             "强袭一击",
             kmbox_net.KEY_6,
             self.kmDriver,
-            cooldown=120,
+            cooldown=120 + 1,
             impact_time=3,
             time_consumption=0.5,
         )
+
         self.skill_7 = Skill(
-            "毅力",
+            "激怒爆炸",
             kmbox_net.KEY_7,
             self.kmDriver,
-            cooldown=150,
-            time_consumption=1,
+            cooldown=45 + 1,
+            range=4,
+            time_consumption=2,
+            impact_time=10,
         )
 
         self.skill_e1 = Skill(
             "脚踝斩",
             kmbox_net.KEY_E,
             self.kmDriver,
-            cooldown=10,
+            cooldown=10 + 1,
             range=4,
             impact_time=3,
             time_consumption=0.5,
         )
+
         self.skill_r = Skill(
             "锐利一击",
             kmbox_net.KEY_R,
             self.kmDriver,
         )
+
         self.skill_t = Skill(
             "斩断猛击",
             kmbox_net.KEY_T,
@@ -93,9 +102,10 @@ class RoleSwordStar(Role):
             "突进一击",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=6,  # 实际范围是10米，为了走进再触发技能
             impact_time=3,
+            press_holdon=0.5,
             time_consumption=1,
         )
 
@@ -103,31 +113,27 @@ class RoleSwordStar(Role):
             "空中结缚",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=45,
+            cooldown=45 + 1,
             range=4,
             impact_time=3,
-            time_consumption=0.5,
-            precondition_skills=[
-                self.skill_2,
-                self.skill_q2,
-                self.skill_6,
-                self.skill_5,
-            ],
+            # time_consumption=0.5,
         )
 
         self.skill_e2 = Skill(
             "下盘击",
             kmbox_net.KEY_E,
             self.kmDriver,
-            cooldown=5,
+            cooldown=5 + 1,
             range=4,
-            time_consumption=0.5,
-            precondition_skills=[
-                self.skill_2,
-                self.skill_q2,
-                self.skill_6,
-                self.skill_5,
-            ],
+            time_consumption=0.8,
+        )
+
+        self.skill_q1.add_precondition_skills(
+            self.skill_2, self.skill_q2, self.skill_6, self.skill_5, self.skill_7
+        )
+
+        self.skill_e2.add_precondition_skills(
+            self.skill_2, self.skill_q2, self.skill_6, self.skill_5, self.skill_7
         )
 
     def search(self):
@@ -152,10 +158,10 @@ class RoleSwordStar(Role):
                 return self.heal() and self._dodge()
             return False
 
-        def check_and_dodge(target_distance):
-            if self.check_is_close():
-                return self.dodge()
-            return False
+        # def check_and_dodge(target_distance):
+        #     if self.check_is_close():
+        #         return self.dodge()
+        #     return False
 
         def com_skil_q2(target_distance):
             if self.skill_q2.is_can_use(self.target_distance):
@@ -170,22 +176,21 @@ class RoleSwordStar(Role):
 
         skills_to_use = [
             check_and_heal,
-            check_and_dodge,
-            self.skill_q1.use,
-            self.skill_e2.use,
-            com_skil_q2,
-            com_skil_e1,
-            self.skill_q2.use,
+            self.skill_q1.use,  # 空中束缚
+            self.skill_e2.use,  # 下盘击
+            com_skil_e1,  # 随机格挡触发
+            self.skill_3.use,
         ]
         skills_to_use2 = [
-            self.skill_1.use,
-            self.skill_2.use,
-            self.skill_3.use,
-            self.skill_5.use,
             self.skill_6.use,
-            self.skill_t.use,
+            self.skill_5.use,
+            self.skill_7.use,
+            self.skill_2.use,  # 选择一个击倒技能
+            com_skil_q2,
         ]
         random.shuffle(skills_to_use2)
+        skills_to_use2.append(self.skill_t.use)
+
         for skill_use in skills_to_use + skills_to_use2:
             if skill_use(self.target_distance):
                 return
@@ -193,20 +198,21 @@ class RoleSwordStar(Role):
         self.skill_1.use(self.target_distance)
 
     def buff(self):
-        self.skill_7.use(self.target_distance)
+        # self.skill_7.use(self.target_distance)
+        pass
 
     def dodge(self):
         pass
 
     def _need_random_jump_distance(self):
-        if self.target_distance == -1 or self.target_distance <= 20:
+        if self.target_distance <= 20:
             return False
         if random.randint(0, 3) != 1:
             return False
         return True
 
     def _need_random_walk_distance(self):
-        if self.target_distance == -1 or self.target_distance > 4:
+        if self.target_distance < 0 or self.target_distance > 4:
             return False
         if random.randint(0, 3) != 1:
             return False

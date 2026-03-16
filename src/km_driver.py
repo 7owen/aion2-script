@@ -98,19 +98,35 @@ class KmboxDriver:
             self.mouse_y = self.screen_height
 
     def mouse_reset(self):
-        client = self._ensure_client()
-        client.enc_mouse_move_auto(
-            -self.screen_width + 1, -self.screen_height + 1, 1000
-        )
-        time.sleep(0.5)
-        self.mouse_x = 0
-        self.mouse_y = 0
         self.human_mouse_move(
-            int(self.screen_width / 2), int(self.screen_height / 2), 2
+            0,
+            -self.screen_height - 1,
+            duration=random.uniform(0.5, 1.0),
+            update_mouse_xy=False,
         )
+        client = self._ensure_client()
+        x = random.choice([-1, 1])
+        client.enc_mouse_move_auto(
+            x * (self.screen_width + 1), -10, int(random.uniform(500, 1000))
+        )
+        self.mouse_x = 0 if x == -1 else self.screen_width
+        self.mouse_y = 0
+        # print(self.mouse_x, self.mouse_y)
 
     def initialize_mouse_track(self):
         self.mouse_reset()
+        self.move_any_center()
+
+    def move_any_center(self):
+        center_x = self.screen_width // 2
+        center_y = self.screen_height // 2
+        target_x = random.randint(center_x - 200, center_x + 200)
+        target_y = random.randint(center_y - 200, center_y + 200)
+        self.human_mouse_move_to(
+            target_x,
+            target_y,
+            duration=random.uniform(0.5, 1.0),
+        )
 
     def human_mouse_move(self, dx: int, dy: int, duration=0.5, update_mouse_xy=True):
         client = self._ensure_client()
@@ -142,12 +158,12 @@ class KmboxDriver:
             x - self.mouse_x, y - self.mouse_y, duration, update_mouse_xy
         )
 
-    def key_press(self, key, duration_ms=None):
+    def key_press(self, key, duration=None):
         client = self._ensure_client()
-        if duration_ms is None:
-            duration_ms = random.randint(60, 120)
+        if duration is None:
+            duration = random.randint(60, 120) / 1000
         client.enc_keydown(key)
-        time.sleep(duration_ms / 1000)
+        time.sleep(duration)
         client.enc_keyup(key)
 
     def key_down(self, key):

@@ -24,11 +24,38 @@ class Rect:
 
 
 @dataclass(frozen=True)
+class RelativeRect:
+    """表示相对于锚点坐标的矩形偏移 [x1, y1, x2, y2]。"""
+
+    x1_offset: int
+    y1_offset: int
+    x2_offset: int
+    y2_offset: int
+
+
+@dataclass(frozen=True)
+class OcrRegionConfig:
+    """描述一个固定区域上的 OCR 识别规格。"""
+
+    rect: Rect
+    window_name: str
+    show_window: bool = False
+
+
+@dataclass(frozen=True)
+class TemplateMatchConfig:
+    """描述一个模板匹配资源及其容差。"""
+
+    path: str
+    tolerance: float = 0.1
+
+
+@dataclass(frozen=True)
 class RuntimeConfig:
     """机器人运行时的控制参数。"""
 
-    max_try_combat_count: int = 5  # 单次战斗尝试的最大次数
-    max_ops_per_second: int = 3  # 每秒允许的最大操作频率（防止动作过快被检测）
+    max_try_combat_count: int = 3  # 单次战斗尝试的最大次数
+    max_ops_per_second: int = 2  # 每秒允许的最大操作频率（防止动作过快被检测）
 
 
 @dataclass(frozen=True)
@@ -53,20 +80,52 @@ class VisionConfig:
     # YOLO 模型参数
     yolo_imgsz: int = 256
     yolo_conf: float = 0.2
+    target_detection_mode: str = "template"
 
     # UI 识别矩形区域
-    health_rect: Rect = field(
-        default_factory=lambda: Rect(791, 959, 911, 973)
-    )  # 血条坐标
-    mental_rect: Rect = field(
-        default_factory=lambda: Rect(1010, 959, 1130, 973)
-    )  # 蓝条/精力条坐标
+    health_region: OcrRegionConfig = field(
+        default_factory=lambda: OcrRegionConfig(
+            rect=Rect(791, 959, 911, 973),
+            window_name="Health_Value",
+        )
+    )
+    mental_region: OcrRegionConfig = field(
+        default_factory=lambda: OcrRegionConfig(
+            rect=Rect(1010, 959, 1130, 973),
+            window_name="Mental_Value",
+        )
+    )
 
-    # 距离估算微调参数
-    distance_x_shift_ratio: float = 0.78  # 距离文本在 X 轴上的比例偏移
-    distance_x2_trim: int = 30  # 右边界截断
-    distance_y1_offset: int = 10  # 上边界偏移
-    distance_y2_trim_ratio: float = 0.6  # 下边界截断比例
+    # 目标识别和模板匹配资源
+    top_target_icon_match: TemplateMatchConfig = field(
+        default_factory=lambda: TemplateMatchConfig(
+            path="src/images/top-target-right-icon.png",
+            tolerance=0.1,
+        )
+    )
+    resurrection_button_match: TemplateMatchConfig = field(
+        default_factory=lambda: TemplateMatchConfig(
+            path="src/images/resurrection-btn.png",
+            tolerance=0.1,
+        )
+    )
+    liweijian_icon_match: TemplateMatchConfig = field(
+        default_factory=lambda: TemplateMatchConfig(
+            path="src/images/baoji_icon.png",
+            tolerance=0.1,
+        )
+    )
+
+    # 技能状态与目标距离估算区域
+    liweijian_region: Rect = field(default_factory=lambda: Rect(1257, 466, 1329, 538))
+    target_distance_box: RelativeRect = field(
+        default_factory=lambda: RelativeRect(
+            x1_offset=-50,
+            y1_offset=-20,
+            x2_offset=-12,
+            y2_offset=0,
+        )
+    )
 
 
 @dataclass(frozen=True)

@@ -14,14 +14,15 @@ class RoleBowStar(Role):
         km_driver,
     ) -> None:
         super().__init__(config=role_config, km_driver=km_driver)
+        self.is_liweijian_vaild = False
         self.skill_1 = Skill(
-            "套索箭", kmbox_net.KEY_1, self.kmDriver, cooldown=15, impact_time=5
+            "套索箭", kmbox_net.KEY_1, self.kmDriver, cooldown=15 + 1, impact_time=5
         )
         self.skill_2 = Skill(
             "疯狂箭",
             kmbox_net.KEY_2,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=20,
             press_holdon=0.5,
         )
@@ -29,35 +30,36 @@ class RoleBowStar(Role):
             "爆炸圈套",
             kmbox_net.KEY_3,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=20,
-            time_consumption=1,
+            impact_time=3,
+            # time_consumption=1,
         )
         self.skill_5 = Skill(
-            "箭失风暴", kmbox_net.KEY_5, self.kmDriver, cooldown=60, impact_time=10
+            "箭失风暴", kmbox_net.KEY_5, self.kmDriver, cooldown=60 + 1, impact_time=10
         )
         self.skill_6 = Skill(
             "突击踢",
             kmbox_net.KEY_6,
             self.kmDriver,
             cooldown=30,
-            range=10,
-            time_consumption=1,
+            range=5,
+            # time_consumption=1,
         )
         self.skill_7 = Skill(
             "白什么灌能",
             kmbox_net.KEY_7,
             self.kmDriver,
-            cooldown=60,
-            time_consumption=1,
+            cooldown=60 + 1,
+            # time_consumption=1,
         )
         self.skill_8 = Skill(
             "爆炸箭",
             kmbox_net.KEY_8,
             self.kmDriver,
-            cooldown=45,
+            cooldown=45 + 1,
             range=20,
-            time_consumption=0.5,
+            # time_consumption=0.5,
         )
 
         self.skill_q2 = Skill(
@@ -67,7 +69,7 @@ class RoleBowStar(Role):
             "目标箭",
             kmbox_net.KEY_E,
             self.kmDriver,
-            cooldown=10,
+            cooldown=10 + 1,
             range=20,
             impact_time=10,
         )
@@ -75,30 +77,31 @@ class RoleBowStar(Role):
             "压制箭",
             kmbox_net.KEY_E,
             self.kmDriver,
-            cooldown=3,
+            cooldown=20 + 1,
             range=20,
-            impact_time=5,
-            precondition_skills=[self.skill_e1],
+            impact_time=4,
         )
         self.skill_q1 = Skill(
             "破裂箭",
             kmbox_net.KEY_Q,
             self.kmDriver,
-            cooldown=30,
+            cooldown=30 + 1,
             range=20,
-            precondition_skills=[self.skill_1, self.skill_5],
         )
         self.skill_4 = Skill(
             "瞄准箭",
             kmbox_net.KEY_4,
             self.kmDriver,
-            cooldown=20,
+            cooldown=20 + 1,
             range=20,
             press_holdon=1.5,
-            precondition_skills=[self.skill_e1],
         )
         self.skill_r = Skill("狙击", kmbox_net.KEY_R, self.kmDriver)
         self.skill_t = Skill("速射", kmbox_net.KEY_T, self.kmDriver, range=20)
+
+        self.skill_e2.add_precondition_skills(self.skill_e1)
+        self.skill_q1.add_precondition_skills(self.skill_1, self.skill_5)
+        self.skill_4.add_precondition_skills(self.skill_e1)
 
     def search(self):
         if self.check_low_health():
@@ -132,28 +135,37 @@ class RoleBowStar(Role):
                 return self.dodge()
             return False
 
-        if self.skill_q2.is_can_use(self.target_distance) and random.randint(0, 1) == 0:
-            self.skill_q2.use(self.target_distance)
+        def com_skill_q2(target_distance):
+
+            if (
+                self.skill_q2.is_can_use(target_distance)
+                and "liweijian" in self.active_skills
+                and time.monotonic() < self.active_skills["liweijian"]
+            ):
+                self.skill_q2.use(target_distance)
+                del self.active_skills["liweijian"]
+                print("我使用了为利剑!!!!!!!!!")
 
         skills_to_use = [
             check_and_heal,
             check_and_dodge,
-            self.skill_e1.use,
+            com_skill_q2,
+            self.skill_4.use,
             self.skill_e2.use,
             self.skill_q1.use,
-            self.skill_4.use,
         ]
+
         skills_to_use2 = [
+            self.skill_e1.use,
             self.skill_2.use,
             self.skill_8.use,
-            self.skill_t.use,
         ]
         random.shuffle(skills_to_use2)
         for skill_use in skills_to_use + skills_to_use2:
             if skill_use(self.target_distance):
                 return
 
-        self.skill_1.use(self.target_distance)
+        self.skill_t.use(self.target_distance)
 
     def buff(self):
         pass
@@ -161,14 +173,14 @@ class RoleBowStar(Role):
         #
 
     def _need_random_jump_distance(self):
-        if self.target_distance == -1 or self.target_distance <= 20:
+        if self.target_distance <= 20:
             return False
         if random.randint(0, 3) != 1:
             return False
         return True
 
     def _need_random_walk_distance(self):
-        if self.target_distance == -1 or self.target_distance > 20:
+        if self.target_distance < 0 or self.target_distance > 10:
             return False
         if random.randint(0, 3) != 1:
             return False

@@ -1,26 +1,29 @@
 import random
+import select
 import sys
 import termios
 import time
 import tty
 from enum import Enum
 
-import easyocr
-
-from bot_config import BotConfig, OcrConfig
+from bot_config import BotConfig
 from console import console as console
+from image_engine import ImageEngine
 from km_driver import KmboxDriver
+from role import Role
+from role_bowstar import RoleBowStar as AnyRole
 
-# from role_bowstar import RoleBowStar as Role
-from role_swordstar import RoleSwordStar as Role
-from utils import (
-    crop_frame,
-    extract_text_via_ocr,
-    get_tag_box,
-    perfect_match_and_locate,
-    read_stdin,
-)
+# from role_swordstar import RoleSwordStar as aRole
 from video_capture import VideoCapture
+
+
+def read_stdin():
+    if select.select([sys.stdin], [], [], 0)[0]:
+        char = sys.stdin.read(1)
+        # 处理所有输入流中的字符，防止堆积
+        while select.select([sys.stdin], [], [], 0)[0]:
+            char = sys.stdin.read(1)
+        return char
 
 
 class State(Enum):
@@ -43,26 +46,16 @@ class Aion2Bot(object):
         self.config = BotConfig()
         self.km_driver = KmboxDriver(config=self.config.kmbox)
         self.video_capture = VideoCapture(config=self.config.video)
-        self.role = Role(
+        self.image_engine = ImageEngine(config=self.config)
+        self.role: Role = AnyRole(
             role_config=self.config.role,
             km_driver=self.km_driver,
         )
-        self.ocr_reader = self._create_ocr_reader(self.config.ocr)
         self.state = State.IDLE
         self.cur_try_combat_count = 0
         self.is_paused = False
         self.role.start()
         self.resurrection_box = None
-
-    def _create_ocr_reader(self, ocr_config: OcrConfig):
-        """初始化 OCR 引擎。若配置 GPU 加速但初始化失败，则自动回退至 CPU 模式。"""
-        try:
-            return easyocr.Reader(list(ocr_config.languages), gpu=ocr_config.use_gpu)
-        except Exception as exc:
-            if ocr_config.use_gpu:
-                console.set_err_msg(f">>> OCR GPU 初始化失败，降级到 CPU: {exc}")
-                return easyocr.Reader(list(ocr_config.languages), gpu=False)
-            raise
 
     def main_loop(self):
         """
@@ -81,8 +74,6 @@ class Aion2Bot(object):
                 char = read_stdin()
                 if char == " ":
                     self.is_paused = not self.is_paused
-                    if not self.is_paused:
-                        self.km_driver.initialize_mouse_track()
                 elif char == "q":
                     break
 
@@ -125,55 +116,48 @@ class Aion2Bot(object):
             console.set_err_msg(err_msg)
 
     def update_role(self, now) -> bool:
-        """执行视觉更新周期：读取画面、识别生命值、检测目标并计算距离。"""
-        self.role.tick()
-
-        frame = self.video_capture.read_frame()
-        if frame is None:
+        img = self.video_capture.read_frame()
+        if img is None:
             self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
             return False
 
-        self.resurrection_box = self.get_resurrection_box(frame)
-
-        if int(now) % 3 == 1:
-            # 更新血量感知
-            health, health_err = self.get_health_value(frame)
-            if not health_err:
-                self.role.health = health
-            else:
-                console.set_err_msg(health_err)
-
-            # 更新活力感知
-            mental_value, mental_err = self.get_mental_value(frame)
-            if not mental_err:
-                self.role.mental = mental_value
-            else:
-                console.set_err_msg(mental_err)
-
-        # 视觉目标检测, 裁剪游戏画面顶部区域用于识别目标和距离，减少算力开销
-        target_frame = crop_frame(
-            frame,
-            x_offset=self.config.vision.frame_crop_x_offset,
-            y_offset=self.config.vision.frame_crop_y_offset,
-            roi_width=self.config.vision.frame_crop_width,
-            roi_height=self.config.vision.frame_crop_height,
+        """执行视觉更新周期：读取画面、识别生命值、检测目标并计算距离。"""
+        self.role.tick()
+        analysis = self.image_engine.analyze(
+            img,
+            include_vitals=int(now) % 3 == 1,
         )
 
-        # target_box = self.get_target_box_v1(target_frame)
-        target_box = self.get_target_box_v2(target_frame)
+        if analysis.liweijian_valid:
+            self.role.active_skills["liweijian"] = time.monotonic() + 3
+
+        if analysis.health is not None:
+            # 更新血量感知
+            self.role.health = analysis.health
+        elif analysis.health_error:
+            console.set_err_msg(analysis.health_error)
+
+        if analysis.mental is not None:
+            # 更新活力感知
+            self.role.mental = analysis.mental
+        elif analysis.mental_error:
+            console.set_err_msg(analysis.mental_error)
+
+        # self.get_status_from_box(frame, (50, 965, 370, 1020))
+
+        target_box = analysis.target_box
         self.role.has_target = target_box is not None
         if target_box:
-            # 获取目标距离
-            # distance_box = self.get_distance_box_v1(target_box)
-            distance_box = self.get_distance_box_v2(target_box)
-            dist, dist_err = self.get_distance_from_box(target_frame, distance_box)
-            if not dist_err:
-                self.role.target_distance = dist
+            self.resurrection_box = None
+            if analysis.target_distance is not None:
+                self.role.target_distance = analysis.target_distance
             else:
                 self.role.target_distance = -1
-                console.set_err_msg(dist_err)
+                if analysis.target_distance_error:
+                    console.set_err_msg(analysis.target_distance_error)
         else:
             self.role.target_distance = -1
+            self.resurrection_box = analysis.resurrection_box
 
         return True
 
@@ -192,7 +176,7 @@ class Aion2Bot(object):
                 if self.cur_try_combat_count < self.config.runtime.max_try_combat_count:
                     self.cur_try_combat_count += 1
                     self.role.search()
-                    time.sleep(1)
+                    time.sleep(0.5)
                 else:
                     self.cur_try_combat_count = 0
                     self.role.rotate_view()
@@ -214,90 +198,10 @@ class Aion2Bot(object):
         self.state = State.IDLE
         self.cur_try_combat_count = 0
 
-    def get_health_value(self, frame):
-        """识别屏幕特定区域的生命值 OCR 文本并转化为百分比。"""
-        rect = self.config.vision.health_rect
-        pic = self.video_capture.capture_pic(frame, rect.x1, rect.y1, rect.x2, rect.y2)
-        result, err_msg = extract_text_via_ocr(
-            self.ocr_reader,
-            pic,
-            self.config.ocr.health_allowlist,
-            self.config.ocr.health_pattern,
-            "生命值",
-            False,
-        )
-        if result and len(result) >= 2 and int(result[1]) != 0:
-            return int(result[0]) / int(result[1]), None
-        return -1, err_msg
-
-    def get_mental_value(self, frame):
-        """识别屏幕特定区域的活力值 OCR 文本并转化为百分比。"""
-        rect = self.config.vision.mental_rect
-        pic = self.video_capture.capture_pic(frame, rect.x1, rect.y1, rect.x2, rect.y2)
-        result, err_msg = extract_text_via_ocr(
-            self.ocr_reader,
-            pic,
-            self.config.ocr.health_allowlist,
-            self.config.ocr.health_pattern,
-            "活力值",
-            False,
-        )
-        if result and len(result) >= 2 and int(result[1]) != 0:
-            return int(result[0]) / int(result[1]), None
-        return -1, err_msg
-
-    def get_distance_box_v1(self, target_box):
-        x1, y1, x2, y2 = target_box
-        x1 += int((x2 - x1) * self.config.vision.distance_x_shift_ratio)
-        x2 -= self.config.vision.distance_x2_trim
-        y1 += self.config.vision.distance_y1_offset
-        y2 -= int((y2 - y1) * self.config.vision.distance_y2_trim_ratio)
-        return x1, y1, x2, y2
-
-    def get_distance_box_v2(self, target_box):
-        t_x1, t_y1, _, _ = target_box
-        x1 = t_x1 - 50
-        x2 = t_x1 - 12
-        y1 = t_y1 - 20
-        y2 = t_y1
-        return x1, y1, x2, y2
-
-    def get_distance_from_box(self, frame, distance_box):
-        x1, y1, x2, y2 = distance_box
-        pic = self.video_capture.capture_pic(frame, x1, y1, x2, y2)
-        result, err_msg = extract_text_via_ocr(
-            self.ocr_reader,
-            pic,
-            self.config.ocr.distance_allowlist,
-            self.config.ocr.distance_pattern,
-            "目标距离",
-            False,
-        )
-        if result:
-            return int(result[0]), None
-        return -1, err_msg
-
-    def get_target_box_v1(self, frame):
-        yolo_results = self.video_capture.predict(
-            frame,
-            imgsz=self.config.vision.yolo_imgsz,
-            conf=self.config.vision.yolo_conf,
-        )
-        return get_tag_box(yolo_results, "Top_Target_Tag")
-
-    def get_target_box_v2(self, frame):
-        return perfect_match_and_locate(
-            "src/images/top-target-right-icon.png", frame, 0.05
-        )
-
-    def get_resurrection_box(self, frame):
-        return perfect_match_and_locate("src/images/resurrection-btn.png", frame, 0.1)
-
 
 def main():
     """主函数，启动机器人实例。"""
-    bot = Aion2Bot()
-    bot.main_loop()
+    Aion2Bot().main_loop()
 
 
 if __name__ == "__main__":
