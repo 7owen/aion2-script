@@ -4,7 +4,8 @@ import time
 import kmbox_net
 
 from bot_config import RoleConfig
-from role import Role, Skill
+from role import Role
+from skill import Skill
 
 
 class RoleSwordStar(Role):
@@ -12,14 +13,21 @@ class RoleSwordStar(Role):
         self,
         role_config: RoleConfig,
         km_driver,
+        player_ctrl,
+        context,
     ) -> None:
-        super().__init__(config=role_config, km_driver=km_driver)
+        super().__init__(
+            config=role_config,
+            km_driver=km_driver,
+            player_ctrl=player_ctrl,
+            context=context,
+        )
         self.skill_1 = Skill(
             "跳跃攻击",
             kmbox_net.KEY_1,
             self.kmDriver,
             cooldown=15 + 1,
-            time_consumption=1,
+            # time_consumption=0.5,
         )
 
         self.skill_2 = Skill(
@@ -38,13 +46,17 @@ class RoleSwordStar(Role):
             self.kmDriver,
             cooldown=20 + 1,
             range=4,
-            time_consumption=2,
+            time_consumption=1,
             press_count=2,
-            press_interval=0.5,
+            press_interval=0.3,
         )
 
         self.skill_4 = Skill(
-            "破灭猛击", kmbox_net.KEY_4, self.kmDriver, cooldown=30, time_consumption=1
+            "破灭猛击",
+            kmbox_net.KEY_4,
+            self.kmDriver,
+            cooldown=30,
+            time_consumption=0.5,
         )
 
         self.skill_5 = Skill(
@@ -71,7 +83,7 @@ class RoleSwordStar(Role):
             self.kmDriver,
             cooldown=45 + 1,
             range=4,
-            time_consumption=2,
+            time_consumption=0.5,
             impact_time=10,
         )
 
@@ -103,7 +115,7 @@ class RoleSwordStar(Role):
             kmbox_net.KEY_Q,
             self.kmDriver,
             cooldown=20 + 1,
-            range=6,  # 实际范围是10米，为了走进再触发技能
+            range=10,  # 实际范围是10米，为了走进再触发技能
             impact_time=3,
             press_holdon=0.5,
             time_consumption=1,
@@ -116,7 +128,7 @@ class RoleSwordStar(Role):
             cooldown=45 + 1,
             range=4,
             impact_time=3,
-            # time_consumption=0.5,
+            time_consumption=0.5,
         )
 
         self.skill_e2 = Skill(
@@ -125,7 +137,7 @@ class RoleSwordStar(Role):
             self.kmDriver,
             cooldown=5 + 1,
             range=4,
-            time_consumption=0.8,
+            time_consumption=0.5,
         )
 
         self.skill_q1.add_precondition_skills(
@@ -139,23 +151,25 @@ class RoleSwordStar(Role):
     def search(self):
         if self.check_low_health():
             self.dodge()
-            self.heal()
+            self.player_ctrl.heal()
 
         _ = (
-            self.skill_1.use(self.target_distance)
-            or self.skill_4.use(self.target_distance)
-            or self.skill_6.use(self.target_distance)
-            or self.skill_r.use(self.target_distance)
+            self.skill_1.use(self.context.target_distance)
+            or self.skill_4.use(self.context.target_distance)
+            or self.skill_6.use(self.context.target_distance)
+            or self.skill_r.use(self.context.target_distance)
         )
 
     def fight(self):
-        self._random_jump()
+        if self._need_random_jump_distance():
+            self.player_ctrl.jump()
 
-        self._random_walk()
+        if self._need_random_walk_distance():
+            self.player_ctrl.random_walk()
 
         def check_and_heal(target_distance):
             if self.check_low_health():
-                return self.heal() and self._dodge()
+                return self.player_ctrl.heal() and self.player_ctrl.dodge()
             return False
 
         # def check_and_dodge(target_distance):
@@ -164,8 +178,8 @@ class RoleSwordStar(Role):
         #     return False
 
         def com_skil_q2(target_distance):
-            if self.skill_q2.is_can_use(self.target_distance):
-                self._dodge()
+            if self.skill_q2.is_can_use(self.context.target_distance):
+                self.player_ctrl.dodge()
                 self.skill_q2.use(target_distance)
 
         # 格挡无法检测，只要冷却就1/2机率按键释放
@@ -178,7 +192,7 @@ class RoleSwordStar(Role):
             check_and_heal,
             self.skill_q1.use,  # 空中束缚
             self.skill_e2.use,  # 下盘击
-            com_skil_e1,  # 随机格挡触发
+            # com_skil_e1,  # 随机格挡触发
             self.skill_3.use,
         ]
         skills_to_use2 = [
@@ -192,27 +206,27 @@ class RoleSwordStar(Role):
         skills_to_use2.append(self.skill_t.use)
 
         for skill_use in skills_to_use + skills_to_use2:
-            if skill_use(self.target_distance):
+            if skill_use(self.context.target_distance):
                 return
 
-        self.skill_1.use(self.target_distance)
+        self.skill_1.use(self.context.target_distance)
 
     def buff(self):
-        # self.skill_7.use(self.target_distance)
+        # self.skill_7.use(self.context.target_distance)
         pass
 
     def dodge(self):
         pass
 
     def _need_random_jump_distance(self):
-        if self.target_distance <= 20:
+        if self.context.target_distance <= 20:
             return False
         if random.randint(0, 3) != 1:
             return False
         return True
 
     def _need_random_walk_distance(self):
-        if self.target_distance < 0 or self.target_distance > 4:
+        if self.context.target_distance < 0 or self.context.target_distance > 4:
             return False
         if random.randint(0, 3) != 1:
             return False

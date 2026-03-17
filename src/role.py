@@ -1,106 +1,14 @@
 from __future__ import annotations
 
 import random
-import time
-import weakref
 from abc import ABC, abstractmethod
-
-import kmbox_net
 
 from bot_config import RoleConfig
 from console import console as console
+from game_context import GameContext
 from km_driver import KmboxDriver
-
-
-class Skill:
-    def __init__(
-        self,
-        name: str,
-        key: int,
-        km_driver: KmboxDriver,
-        cooldown: float = 0,
-        range: int | None = None,
-        time_consumption: float = 0,
-        press_holdon: float | None = None,
-        impact_time: float = 0,
-        press_count: int = 1,
-        press_interval: float = 0,
-    ):
-        self.name = name
-        self.kmDriver = km_driver
-        self.key = key
-        self.cooldown = cooldown
-        self.rang = range
-        self.time_consumption = time_consumption
-        self.press_holdon = press_holdon
-        self.impact_time = impact_time
-        self.press_count = press_count
-        self.press_interval = press_interval
-        self.precondition_skill = []
-        self.mutual_exclusion_skills = []
-        self.last_used_at = float("-inf")
-        self.impact_until = float("-inf")
-        if self.kmDriver is None:
-            raise ValueError("Skill requires a valid km_driver instance")
-
-    def add_precondition_skills(self, *skills):
-        for skill in skills:
-            if not isinstance(skill, Skill):
-                raise TypeError("precondition_skill must be a Skill instance")
-            self.precondition_skill.append(weakref.ref(skill))
-
-    def add_mutual_exclusion_skills(self, *skills):
-        for skill in skills:
-            if not isinstance(skill, Skill):
-                raise TypeError("mutual_exclusion_skill must be a Skill instance")
-            self.mutual_exclusion_skills.append(weakref.ref(skill))
-
-    def is_off_cooldown(self) -> bool:
-        return self.get_remaining_cd() <= 0
-
-    def get_remaining_cd(self) -> float:
-        elapsed = time.monotonic() - self.last_used_at
-        return max(0, self.cooldown - elapsed)
-
-    def is_can_use(self, target_distance: int) -> bool:
-        if not self.is_off_cooldown():
-            return False
-
-        if self.rang is not None and (
-            target_distance < 0 or target_distance > self.rang
-        ):
-            return False
-
-        if any(skill().is_impacting() for skill in self.mutual_exclusion_skills):
-            return False
-
-        if not self.precondition_skill:
-            return True
-
-        return any(skill().is_impacting() for skill in self.precondition_skill)
-
-    def is_impacting(self) -> bool:
-        return time.monotonic() < self.impact_until
-
-    def use(self, target_distance) -> bool:
-        if not self.is_can_use(target_distance):
-            return False
-
-        self.last_used_at = time.monotonic()
-        for i in range(self.press_count):
-            self._press_once()
-            if i < self.press_count - 1:
-                time.sleep(self.press_interval)
-
-        time.sleep(self.time_consumption)
-        self.impact_until = time.monotonic() + self.impact_time
-        return True
-
-    def _press_once(self) -> None:
-        if self.press_holdon is not None:
-            self.kmDriver.key_press(self.key, self.press_holdon)
-        else:
-            self.kmDriver.key_press(self.key)
+from player_controller import PlayerController
+from skill import Skill
 
 
 class Role(ABC):
@@ -108,52 +16,14 @@ class Role(ABC):
         self,
         km_driver: KmboxDriver,
         config: RoleConfig,
+        player_ctrl: PlayerController,
+        context: GameContext,
     ) -> None:
         self.config = config
-        self.health = 1.0
-        self.mental = 1.0
-        self.has_target = False
-        self.target_distance = -1
-        self.need_extract = False
-        self.next_extract_at = float("inf")
-        self._started = False
-        self.active_skills = {}
+        self.context = context
+        self.player_ctrl = player_ctrl
 
         self.kmDriver = km_driver
-        self.skill_f1 = Skill(
-            "F1", kmbox_net.KEY_F1, self.kmDriver, cooldown=15, impact_time=2
-        )
-        self.skill_space = Skill(
-            "空格",
-            kmbox_net.KEY_SPACEBAR,
-            self.kmDriver,
-            cooldown=1,
-            time_consumption=0.5,
-        )
-        self.skill_sifht = Skill(
-            "紧急回避",
-            kmbox_net.KEY_LEFTSHIFT,
-            self.kmDriver,
-            cooldown=1,
-            impact_time=1,
-        )
-
-    def start(self):
-        self._started = True
-        self.next_extract_at = time.monotonic() + self.config.extract_interval_seconds
-
-    def stop(self):
-        if self._started:
-            self._started = False
-        self.kmDriver.close()
-
-    def tick(self):
-        if not self._started:
-            self.start()
-        now = time.monotonic()
-        if now >= self.next_extract_at:
-            self.need_extract = True
-            self.next_extract_at = now + self.config.extract_interval_seconds
 
     @abstractmethod
     def search(self):
@@ -167,17 +37,11 @@ class Role(ABC):
     def buff(self):
         pass
 
-    def loot(self):
-        console.set_note_msg("拾取东西")
-        self.kmDriver.key_press(kmbox_net.KEY_F)
-        # time.sleep(0.2)
-
-    def heal(self):
-        console.set_note_msg(f"恢复生命, 剩余{self.health * 100:.2f}%")
-        return self.skill_f1.use(self.target_distance)
-
     def is_low_health(self):
-        return self.health > 0 and self.health < self.config.low_health_threshold
+        return (
+            self.context.health > 0
+            and self.context.health < self.config.low_health_threshold
+        )
 
     def check_low_health(self):
         if self.is_low_health():
@@ -187,8 +51,8 @@ class Role(ABC):
 
     def is_close(self):
         return (
-            self.target_distance > 0
-            and self.target_distance <= self.config.close_distance_threshold
+            self.context.target_distance > 0
+            and self.context.target_distance <= self.config.close_distance_threshold
         )
 
     def check_is_close(self):
@@ -210,94 +74,3 @@ class Role(ABC):
                     cd_parts.append(f"{attr_value.name}({remaining:.1f}s)")
 
         return " | ".join(cd_parts)
-
-    keys = [
-        kmbox_net.KEY_A,
-        kmbox_net.KEY_D,
-        kmbox_net.KEY_S,
-        # kmbox_net.KEY_W,
-    ]
-
-    def _dodge(self):
-        key = random.choice(self.keys)
-        self.kmDriver.key_down(key)
-        # time.sleep(0.1)
-        self.skill_sifht.use(self.target_distance)
-        # time.sleep(0.1)
-        self.kmDriver.key_up(key)
-
-    @abstractmethod
-    def _need_random_jump_distance(self) -> bool:
-        pass
-
-    def _random_jump(self):
-        if not self._need_random_jump_distance():
-            return
-        self.skill_space.use(self.target_distance)
-
-    @abstractmethod
-    def _need_random_walk_distance(self) -> bool:
-        pass
-
-    def _random_walk(self):
-        if not self._need_random_walk_distance():
-            return
-        key = random.choice(self.keys)
-        self.kmDriver.key_down(key)
-        time.sleep(random.random())
-        self.kmDriver.key_up(key)
-
-    def rotate_view(self):
-        self.kmDriver.mouse_left(True)
-        # time.sleep(0.2)
-        self.kmDriver.human_mouse_move(random.choice([-1, 1]) * 600, 0, 0.5)
-        # time.sleep(0.2)
-        self.kmDriver.mouse_left(False)
-
-    def extraction(self):
-        self.kmDriver.mouse_reset()
-        # self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
-        # time.sleep(random.random())
-        self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
-        time.sleep(random.random())
-        self.kmDriver.key_press(kmbox_net.KEY_I)
-        time.sleep(random.random())
-        self.kmDriver.human_mouse_move_to(
-            random.randint(1735, 1785), random.randint(1025, 1060), 0.5
-        )
-        self.kmDriver.mouse_left_press()
-        time.sleep(random.random())
-        self.kmDriver.human_mouse_move_to(
-            random.randint(1616, 1720), random.randint(972, 998), 0.3
-        )
-        time.sleep(random.random())
-        self.kmDriver.mouse_left_press()
-        time.sleep(random.random())
-        self.kmDriver.key_press(kmbox_net.KEY_F)
-        time.sleep(random.random())
-        self.kmDriver.key_press(kmbox_net.KEY_F)
-        time.sleep(1)
-        self.kmDriver.key_press(kmbox_net.KEY_F)
-        time.sleep(random.random())
-        self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
-        time.sleep(random.random())
-        # self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
-        self.kmDriver.move_any_center()
-        self.need_extract = False
-        self.next_extract_at = time.monotonic() + self.config.extract_interval_seconds
-
-    def resurrect(self, btn_box):
-        if btn_box is None:
-            return
-        # print(f"resurrect: {btn_box}")
-        # print(
-        #     f"{random.randint(btn_box[0] + 5, btn_box[2] - 5)}, {random.randint(btn_box[1] + 5, btn_box[3] - 5)}"
-        # )
-        self.kmDriver.mouse_reset()
-        self.kmDriver.human_mouse_move_to(
-            random.randint(btn_box[0] + 5, btn_box[2] - 5),
-            random.randint(btn_box[1] + 5, btn_box[3] - 5),
-            1,
-        )
-        time.sleep(random.random())
-        self.kmDriver.mouse_left_press()

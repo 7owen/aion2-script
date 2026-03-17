@@ -32,9 +32,9 @@ class StateConsole:
             mouse_y = getattr(mouse_driver, "mouse_y", "-")
 
         status_line = (
-            f"生命值: {role.health * 100:.2f}% | "
-            f"活力值: {role.mental * 100:.2f}% | "
-            f"距离: {role.target_distance}米 | "
+            f"生命值: {role.context.health * 100:.2f}% | "
+            f"活力值: {role.context.mental * 100:.2f}% | "
+            f"距离: {role.context.target_distance}米 | "
             f"鼠标座标: X: {mouse_x}, Y: {mouse_y}"
         )
 

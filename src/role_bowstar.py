@@ -4,7 +4,8 @@ import time
 import kmbox_net
 
 from bot_config import RoleConfig
-from role import Role, Skill
+from role import Role
+from skill import Skill
 
 
 class RoleBowStar(Role):
@@ -12,8 +13,15 @@ class RoleBowStar(Role):
         self,
         role_config: RoleConfig,
         km_driver,
+        player_ctrl,
+        context,
     ) -> None:
-        super().__init__(config=role_config, km_driver=km_driver)
+        super().__init__(
+            config=role_config,
+            km_driver=km_driver,
+            player_ctrl=player_ctrl,
+            context=context,
+        )
         self.is_liweijian_vaild = False
         self.skill_1 = Skill(
             "套索箭", kmbox_net.KEY_1, self.kmDriver, cooldown=15 + 1, impact_time=5
@@ -105,29 +113,34 @@ class RoleBowStar(Role):
 
     def search(self):
         if self.check_low_health():
-            _ = self.heal() and self._dodge()
+            _ = self.player_ctrl.heal() and self.player_ctrl.dodge()
 
         _ = (
-            self.skill_5.use(self.target_distance)
-            or self.skill_1.use(self.target_distance)
-            or self.skill_r.use(self.target_distance)
+            self.skill_5.use(self.context.target_distance)
+            or self.skill_1.use(self.context.target_distance)
+            or self.skill_r.use(self.context.target_distance)
         )
 
     def dodge(self):
         _ = (
-            self.skill_6.use(self.target_distance)
-            or (self.skill_3.use(self.target_distance) and self._dodge())
-            or self._dodge()
+            self.skill_6.use(self.context.target_distance)
+            or (
+                self.skill_3.use(self.context.target_distance)
+                and self.player_ctrl.dodge()
+            )
+            or self.player_ctrl.dodge()
         )
 
     def fight(self):
-        self._random_jump()
+        if self._need_random_jump_distance():
+            self.player_ctrl.jump()
 
-        self._random_walk()
+        if self._need_random_walk_distance():
+            self.player_ctrl.random_walk()
 
         def check_and_heal(target_distance):
             if self.check_low_health():
-                return self.heal() and self._dodge()
+                return self.player_ctrl.heal() and self.player_ctrl.dodge()
             return False
 
         def check_and_dodge(target_distance):
@@ -139,11 +152,11 @@ class RoleBowStar(Role):
 
             if (
                 self.skill_q2.is_can_use(target_distance)
-                and "liweijian" in self.active_skills
-                and time.monotonic() < self.active_skills["liweijian"]
+                and "liweijian" in self.context.active_skills
+                and time.monotonic() < self.context.active_skills["liweijian"]
             ):
                 self.skill_q2.use(target_distance)
-                del self.active_skills["liweijian"]
+                del self.context.active_skills["liweijian"]
                 print("我使用了为利剑!!!!!!!!!")
 
         skills_to_use = [
@@ -161,26 +174,27 @@ class RoleBowStar(Role):
             self.skill_8.use,
         ]
         random.shuffle(skills_to_use2)
+        skills_to_use2.append(self.skill_t.use)
         for skill_use in skills_to_use + skills_to_use2:
-            if skill_use(self.target_distance):
+            if skill_use(self.context.target_distance):
                 return
 
-        self.skill_t.use(self.target_distance)
+        self.skill_1.use(self.context.target_distance)
 
     def buff(self):
         pass
-        # self.skill_7.use(self.target_distance)
+        # self.skill_7.use(self.context.target_distance)
         #
 
     def _need_random_jump_distance(self):
-        if self.target_distance <= 20:
+        if self.context.target_distance <= 20:
             return False
         if random.randint(0, 3) != 1:
             return False
         return True
 
     def _need_random_walk_distance(self):
-        if self.target_distance < 0 or self.target_distance > 10:
+        if self.context.target_distance < 0 or self.context.target_distance > 10:
             return False
         if random.randint(0, 3) != 1:
             return False

@@ -4,16 +4,18 @@ import sys
 import termios
 import time
 import tty
-from enum import Enum
 
 from bot_config import BotConfig
 from console import console as console
+from game_context import GameContext
 from image_engine import ImageEngine
 from km_driver import KmboxDriver
+from player_controller import PlayerController
 from role import Role
-from role_bowstar import RoleBowStar as AnyRole
+from role_swordstar import RoleSwordStar as AnyRole
 
-# from role_swordstar import RoleSwordStar as aRole
+# from role_bowstar import RoleBowStar as AnyRole
+from strategy import CombatStrategy
 from video_capture import VideoCapture
 
 
@@ -24,15 +26,6 @@ def read_stdin():
         while select.select([sys.stdin], [], [], 0)[0]:
             char = sys.stdin.read(1)
         return char
-
-
-class State(Enum):
-    """机器人运行状态枚举"""
-
-    IDLE = "idle"  # 空闲状态，用于寻怪或执行日常操作
-    FIGHT = "fight"  # 战斗状态，正在攻击目标
-    EXTRACT = "extract"  # 采集状态，正在进行资源提取
-    DEATH = "death"
 
 
 class Aion2Bot(object):
@@ -47,15 +40,22 @@ class Aion2Bot(object):
         self.km_driver = KmboxDriver(config=self.config.kmbox)
         self.video_capture = VideoCapture(config=self.config.video)
         self.image_engine = ImageEngine(config=self.config)
+
+        self.context = GameContext(self.config.role.extract_interval_seconds)
+        self.player_ctrl = PlayerController(self.km_driver, self.context)
+
         self.role: Role = AnyRole(
             role_config=self.config.role,
             km_driver=self.km_driver,
+            player_ctrl=self.player_ctrl,
+            context=self.context,
         )
-        self.state = State.IDLE
-        self.cur_try_combat_count = 0
+
+        self.strategy = CombatStrategy(
+            self.context, self.player_ctrl, self.role, self.config
+        )
+
         self.is_paused = False
-        self.role.start()
-        self.resurrection_box = None
 
     def main_loop(self):
         """
@@ -80,123 +80,78 @@ class Aion2Bot(object):
                 if self.is_paused:
                     console.set_note_msg("已暂停脚本")
                 else:
-                    if self.update_role(loop_start):
-                        self.action()
+                    if self.update_perception(loop_start):
+                        self.strategy.action()
 
                 self._render_dashboard()
 
                 # 限制循环频率以控制 CPU/GPU 负载
                 elapsed = time.monotonic() - loop_start
-                wait_time = random.uniform(period - 0.1, period + 0.1) - elapsed
+                wait_time = random.uniform(period - 0.2, period + 0.2) - elapsed
                 if wait_time > 0:
                     time.sleep(wait_time)
 
         finally:
             # 退出清理工作
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-            self.role.stop()
+            self.km_driver.close()
             self.video_capture.release()
 
     def _render_dashboard(self):
         """将当前机器人状态和角色信息渲染到控制台显示器。"""
-        state_str = {
-            State.IDLE: "🔍 寻找目标",
-            State.FIGHT: "⚔️ 战斗中",
-            State.EXTRACT: "🧪 提取中",
-        }.get(self.state, str(self.state))
-        console.render_dashboard(state_str, self.role)
+        console.render_dashboard(self.strategy.get_state_str(), self.role)
 
     def _reset_perception_state(self, err_msg: str | None = None):
         """当发生感知异常（如视频流丢失）时，重置目标感知数据并返回空闲状态。"""
-        self.role.has_target = False
-        self.role.target_distance = -1
-        if self.state == State.FIGHT:
-            self.state = State.IDLE
+        self.context.reset_perception()
+        self.strategy.set_idle_state()
         if err_msg:
             console.set_err_msg(err_msg)
 
-    def update_role(self, now) -> bool:
+    def update_perception(self, now) -> bool:
         img = self.video_capture.read_frame()
         if img is None:
             self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
             return False
 
         """执行视觉更新周期：读取画面、识别生命值、检测目标并计算距离。"""
-        self.role.tick()
         analysis = self.image_engine.analyze(
             img,
             include_vitals=int(now) % 3 == 1,
         )
 
         if analysis.liweijian_valid:
-            self.role.active_skills["liweijian"] = time.monotonic() + 3
+            self.context.active_skills["liweijian"] = time.monotonic() + 3
 
         if analysis.health is not None:
             # 更新血量感知
-            self.role.health = analysis.health
+            self.context.health = analysis.health
         elif analysis.health_error:
             console.set_err_msg(analysis.health_error)
 
         if analysis.mental is not None:
             # 更新活力感知
-            self.role.mental = analysis.mental
+            self.context.mental = analysis.mental
         elif analysis.mental_error:
             console.set_err_msg(analysis.mental_error)
 
         # self.get_status_from_box(frame, (50, 965, 370, 1020))
 
         target_box = analysis.target_box
-        self.role.has_target = target_box is not None
+        self.context.has_target = target_box is not None
         if target_box:
-            self.resurrection_box = None
+            self.context.resurrection_box = None
             if analysis.target_distance is not None:
-                self.role.target_distance = analysis.target_distance
+                self.context.target_distance = analysis.target_distance
             else:
-                self.role.target_distance = -1
+                self.context.target_distance = -1
                 if analysis.target_distance_error:
                     console.set_err_msg(analysis.target_distance_error)
         else:
-            self.role.target_distance = -1
-            self.resurrection_box = analysis.resurrection_box
+            self.context.target_distance = -1
+            self.context.resurrection_box = analysis.resurrection_box
 
         return True
-
-    def action(self):
-        """状态机核心逻辑：根据当前状态执行相应动作。"""
-        if self.state == State.IDLE:
-            self.role.buff()
-            if self.resurrection_box:
-                self.state = State.DEATH
-            elif self.role.has_target:
-                self.state = State.FIGHT
-            elif self.role.need_extract:
-                self.state = State.EXTRACT
-            else:
-                # 尝试搜寻，若次数耗尽则旋转视角
-                if self.cur_try_combat_count < self.config.runtime.max_try_combat_count:
-                    self.cur_try_combat_count += 1
-                    self.role.search()
-                    time.sleep(0.5)
-                else:
-                    self.cur_try_combat_count = 0
-                    self.role.rotate_view()
-        elif self.state == State.FIGHT:
-            if self.role.has_target:
-                self.role.fight()
-            else:
-                self.role.loot()
-                self.set_idle_state()
-        elif self.state == State.EXTRACT:
-            self.role.extraction()
-            self.set_idle_state()
-        elif self.state == State.DEATH:
-            self.role.resurrect(self.resurrection_box)
-            self.resurrection_box = None
-            self.set_idle_state()
-
-    def set_idle_state(self):
-        self.state = State.IDLE
-        self.cur_try_combat_count = 0
 
 
 def main():
