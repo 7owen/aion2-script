@@ -1,4 +1,5 @@
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,8 +9,7 @@ import torch
 from ultralytics.models.yolo import YOLO
 
 from bot_config import OcrConfig, OcrRegionConfig, Rect, TemplateMatchConfig
-
-Box = tuple[int, int, int, int]
+from game_context import Box, CombatSignal, PerceptionSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,19 +32,6 @@ class LoadedTemplate:
     image: object
     mask: object | None
     tolerance: float
-
-
-@dataclass(slots=True)
-class FrameAnalysis:
-    liweijian_valid: bool = False
-    target_box: Box | None = None
-    target_distance: int | None = None
-    target_distance_error: str | None = None
-    resurrection_box: Box | None = None
-    health: float | None = None
-    health_error: str | None = None
-    mental: float | None = None
-    mental_error: str | None = None
 
 
 class ImageEngine:
@@ -168,6 +155,9 @@ class ImageEngine:
                 self.config.vision.resurrection_button_match
             ),
             "liweijian": self._load_template(self.config.vision.liweijian_icon_match),
+            "jiaohuaizhan": self._load_template(
+                self.config.vision.jiaohuaizhan_icon_match
+            ),
         }
         if self.target_detection_mode == "template":
             templates["target"] = self._load_template(
@@ -350,36 +340,53 @@ class ImageEngine:
             return -1, f">>> {spec.parse_spec.window_name} OCR 提取失败，分母为 0"
         return -1, err_msg
 
-    def analyze(self, frame, include_vitals: bool = True) -> FrameAnalysis:
-        analysis = FrameAnalysis()
-        analysis.liweijian_valid = self.is_liweijian_valid(frame)
-        analysis.target_box = self.get_target_box(frame)
+    def analyze(self, frame, include_vitals: bool = True) -> PerceptionSnapshot:
+        now = time.monotonic()
+        errors: list[str] = []
+        active_signals: set[CombatSignal] = set()
+        target_box = self.get_target_box(frame)
+        target_distance = -1
+        resurrection_box = None
+        health = None
+        mental = None
+
+        if self.is_liweijian_valid(frame):
+            active_signals.add(CombatSignal.LIWEIJIAN)
+
+        if self.is_jiaohuaizhan_valid(frame):
+            active_signals.add(CombatSignal.JIAOHUAIZHAN)
 
         if include_vitals:
             health, health_error = self.get_health_value(frame)
             mental, mental_error = self.get_mental_value(frame)
-            if health_error is None:
-                analysis.health = health
-            else:
-                analysis.health_error = health_error
-            if mental_error is None:
-                analysis.mental = mental
-            else:
-                analysis.mental_error = mental_error
+            if health_error is not None:
+                errors.append(health_error)
+                health = None
+            if mental_error is not None:
+                errors.append(mental_error)
+                mental = None
 
-        if analysis.target_box:
+        if target_box:
             target_distance, target_distance_error = self.get_distance_from_target_box(
                 frame,
-                analysis.target_box,
+                target_box,
             )
-            if target_distance_error is None:
-                analysis.target_distance = target_distance
-            else:
-                analysis.target_distance_error = target_distance_error
+            if target_distance_error is not None:
+                errors.append(target_distance_error)
+                target_distance = -1
         else:
-            analysis.resurrection_box = self.get_resurrection_box(frame)
+            resurrection_box = self.get_resurrection_box(frame)
 
-        return analysis
+        return PerceptionSnapshot(
+            captured_at=now,
+            health=health,
+            mental=mental,
+            target_box=target_box,
+            target_distance=target_distance,
+            resurrection_box=resurrection_box,
+            active_signals=frozenset(active_signals),
+            errors=tuple(errors),
+        )
 
     def get_health_value(self, frame):
         """识别屏幕特定区域的生命值 OCR 文本并转化为百分比。"""
@@ -436,5 +443,10 @@ class ImageEngine:
         )
         return ret is not None
 
-    def is_liweijian_vaild(self, frame):
-        return self.is_liweijian_valid(frame)
+    def is_jiaohuaizhan_valid(self, frame):
+        rect = self.config.vision.liweijian_region
+        skill_status_frame = self._crop_image(frame, rect.x1, rect.y1, rect.x2, rect.y2)
+        ret = self._perfect_match_and_locate(
+            self.templates["jiaohuaizhan"], skill_status_frame
+        )
+        return ret is not None

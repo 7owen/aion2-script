@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 def _env_int(name: str, default: int) -> int:
@@ -9,6 +10,16 @@ def _env_int(name: str, default: int) -> int:
         return default
     try:
         return int(value)
+    except ValueError:
+        return default
+
+
+def _env_enum(name: str, enum_type, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return enum_type(value.lower())
     except ValueError:
         return default
 
@@ -55,7 +66,37 @@ class RuntimeConfig:
     """机器人运行时的控制参数。"""
 
     max_try_combat_count: int = 3  # 单次战斗尝试的最大次数
-    max_ops_per_second: float = 2  # 每秒允许的最大操作频率（防止动作过快被检测）
+    max_ops_per_second: float = 1.5  # 每秒允许的最大操作频率（防止动作过快被检测）
+
+
+class RoleType(Enum):
+    SWORDSTAR = "swordstar"
+    BOWSTAR = "bowstar"
+
+
+class StrategyType(Enum):
+    COMBAT = "combat"
+    MINING = "mining"
+
+
+@dataclass(frozen=True)
+class ModeConfig:
+    """运行模式选择。"""
+
+    role_type: RoleType = field(
+        default_factory=lambda: _env_enum(
+            "BOT_ROLE_TYPE",
+            RoleType,
+            RoleType.SWORDSTAR,
+        )
+    )
+    strategy_type: StrategyType = field(
+        default_factory=lambda: _env_enum(
+            "BOT_STRATEGY_TYPE",
+            StrategyType,
+            StrategyType.COMBAT,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -112,6 +153,13 @@ class VisionConfig:
     liweijian_icon_match: TemplateMatchConfig = field(
         default_factory=lambda: TemplateMatchConfig(
             path="src/images/baoji_icon.png",
+            tolerance=0.1,
+        )
+    )
+
+    jiaohuaizhan_icon_match: TemplateMatchConfig = field(
+        default_factory=lambda: TemplateMatchConfig(
+            path="src/images/jiaohuaizhan_icon.png",
             tolerance=0.1,
         )
     )
@@ -187,6 +235,7 @@ class BotConfig:
     """机器人完整配置汇总。"""
 
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
+    mode: ModeConfig = field(default_factory=ModeConfig)
     role: RoleConfig = field(default_factory=RoleConfig)
     vision: VisionConfig = field(default_factory=VisionConfig)
     ocr: OcrConfig = field(default_factory=OcrConfig)

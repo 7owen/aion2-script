@@ -1,163 +1,162 @@
 import random
-import time
 
 import kmbox_net
 
 from bot_config import RoleConfig
+from game_context import BotState, CombatSignal
 from role import Role
-from skill import Skill
+from skill_factory import SkillFactory
 
 
 class RoleBowStar(Role):
     def __init__(
         self,
         role_config: RoleConfig,
-        km_driver,
-        player_ctrl,
-        context,
+        player_action,
+        skill_factory: SkillFactory,
+        state: BotState,
     ) -> None:
         super().__init__(
             config=role_config,
-            km_driver=km_driver,
-            player_ctrl=player_ctrl,
-            context=context,
+            player_action=player_action,
+            state=state,
         )
-        self.is_liweijian_vaild = False
-        self.skill_1 = Skill(
-            "套索箭", kmbox_net.KEY_1, self.kmDriver, cooldown=15 + 1, impact_time=5
+        create_skill = skill_factory.create_skill
+
+        self.skill_1 = create_skill(
+            "套索箭",
+            kmbox_net.KEY_1,
+            cooldown=15 + 1,
+            impact_time=5,
         )
-        self.skill_2 = Skill(
+        self.skill_2 = create_skill(
             "疯狂箭",
             kmbox_net.KEY_2,
-            self.kmDriver,
             cooldown=20 + 1,
             range=20,
             press_holdon=0.5,
         )
-        self.skill_3 = Skill(
+        self.skill_3 = create_skill(
             "爆炸圈套",
             kmbox_net.KEY_3,
-            self.kmDriver,
             cooldown=20 + 1,
             range=20,
             impact_time=3,
-            # time_consumption=1,
         )
-        self.skill_5 = Skill(
-            "箭失风暴", kmbox_net.KEY_5, self.kmDriver, cooldown=60 + 1, impact_time=10
+        self.skill_5 = create_skill(
+            "箭失风暴",
+            kmbox_net.KEY_5,
+            cooldown=60 + 1,
+            impact_time=10,
         )
-        self.skill_6 = Skill(
+        self.skill_6 = create_skill(
             "突击踢",
             kmbox_net.KEY_6,
-            self.kmDriver,
             cooldown=30,
             range=5,
-            # time_consumption=1,
         )
-        self.skill_7 = Skill(
+        self.skill_7 = create_skill(
             "白什么灌能",
             kmbox_net.KEY_7,
-            self.kmDriver,
             cooldown=60 + 1,
-            # time_consumption=1,
         )
-        self.skill_8 = Skill(
+        self.skill_8 = create_skill(
             "爆炸箭",
             kmbox_net.KEY_8,
-            self.kmDriver,
             cooldown=45 + 1,
             range=20,
-            # time_consumption=0.5,
         )
 
-        self.skill_q2 = Skill(
-            "利锥箭", kmbox_net.KEY_Q, self.kmDriver, cooldown=5, range=20
+        self.skill_q2 = create_skill(
+            "利锥箭",
+            kmbox_net.KEY_Q,
+            cooldown=5,
+            range=20,
         )
-        self.skill_e1 = Skill(
+        self.skill_e1 = create_skill(
             "目标箭",
             kmbox_net.KEY_E,
-            self.kmDriver,
             cooldown=10 + 1,
             range=20,
             impact_time=10,
         )
-        self.skill_e2 = Skill(
+        self.skill_e2 = create_skill(
             "压制箭",
             kmbox_net.KEY_E,
-            self.kmDriver,
             cooldown=20 + 1,
             range=20,
             impact_time=4,
         )
-        self.skill_q1 = Skill(
+        self.skill_q1 = create_skill(
             "破裂箭",
             kmbox_net.KEY_Q,
-            self.kmDriver,
             cooldown=30 + 1,
             range=20,
         )
-        self.skill_4 = Skill(
+        self.skill_4 = create_skill(
             "瞄准箭",
             kmbox_net.KEY_4,
-            self.kmDriver,
             cooldown=20 + 1,
             range=20,
             press_holdon=1.5,
         )
-        self.skill_r = Skill("狙击", kmbox_net.KEY_R, self.kmDriver)
-        self.skill_t = Skill("速射", kmbox_net.KEY_T, self.kmDriver, range=20)
+        self.skill_r = create_skill("狙击", kmbox_net.KEY_R)
+        self.skill_t = create_skill("速射", kmbox_net.KEY_T, range=20)
 
         self.skill_e2.add_precondition_skills(self.skill_e1)
         self.skill_q1.add_precondition_skills(self.skill_1, self.skill_5)
         self.skill_4.add_precondition_skills(self.skill_e1)
 
-    def search(self):
+    def search(self) -> None:
         if self.check_low_health():
-            _ = self.player_ctrl.heal() and self.player_ctrl.dodge()
-
-        _ = (
-            self.skill_5.use(self.context.target_distance)
-            or self.skill_1.use(self.context.target_distance)
-            or self.skill_r.use(self.context.target_distance)
-        )
-
-    def dodge(self):
-        _ = (
-            self.skill_6.use(self.context.target_distance)
-            or (
-                self.skill_3.use(self.context.target_distance)
-                and self.player_ctrl.dodge()
+            _ = self.heal_self() and self.player_action.dodge(
+                self.state.target_distance
             )
-            or self.player_ctrl.dodge()
+
+        _ = (
+            self.skill_5.use(self.state.target_distance)
+            or self.skill_1.use(self.state.target_distance)
+            or self.skill_r.use(self.state.target_distance)
         )
 
-    def fight(self):
+    def dodge(self) -> bool:
+        return (
+            self.skill_6.use(self.state.target_distance)
+            or (
+                self.skill_3.use(self.state.target_distance)
+                and self.player_action.dodge(self.state.target_distance)
+            )
+            or self.player_action.dodge(self.state.target_distance)
+        )
+
+    def fight(self) -> None:
         if self._need_random_jump_distance():
-            self.player_ctrl.jump()
+            self.player_action.jump(self.state.target_distance)
 
         if self._need_random_walk_distance():
-            self.player_ctrl.random_walk()
+            self.player_action.random_walk()
 
-        def check_and_heal(target_distance):
+        def check_and_heal(_: int) -> bool:
             if self.check_low_health():
-                return self.player_ctrl.heal() and self.player_ctrl.dodge()
+                return self.heal_self() and self.player_action.dodge(
+                    self.state.target_distance
+                )
             return False
 
-        def check_and_dodge(target_distance):
+        def check_and_dodge(_: int) -> bool:
             if self.check_is_close():
                 return self.dodge()
             return False
 
-        def com_skill_q2(target_distance):
-
-            if (
-                self.skill_q2.is_can_use(target_distance)
-                and "liweijian" in self.context.active_skills
-                and time.monotonic() < self.context.active_skills["liweijian"]
-            ):
-                self.skill_q2.use(target_distance)
-                del self.context.active_skills["liweijian"]
-                print("我使用了为利剑!!!!!!!!!")
+        def com_skill_q2(target_distance: int) -> bool:
+            if self.skill_q2.is_can_use(
+                target_distance
+            ) and self.state.is_signal_active(CombatSignal.LIWEIJIAN):
+                used = self.skill_q2.use(target_distance)
+                if used:
+                    self.state.consume_signal(CombatSignal.LIWEIJIAN)
+                return used
+            return False
 
         skills_to_use = [
             check_and_heal,
@@ -176,26 +175,20 @@ class RoleBowStar(Role):
         random.shuffle(skills_to_use2)
         skills_to_use2.append(self.skill_t.use)
         for skill_use in skills_to_use + skills_to_use2:
-            if skill_use(self.context.target_distance):
+            if skill_use(self.state.target_distance):
                 return
 
-        self.skill_1.use(self.context.target_distance)
+        self.skill_1.use(self.state.target_distance)
 
-    def buff(self):
+    def buff(self) -> None:
         pass
-        # self.skill_7.use(self.context.target_distance)
-        #
 
-    def _need_random_jump_distance(self):
-        if self.context.target_distance <= 20:
+    def _need_random_jump_distance(self) -> bool:
+        if self.state.target_distance <= 20:
             return False
-        if random.randint(0, 3) != 1:
-            return False
-        return True
+        return random.randint(0, 3) == 1
 
-    def _need_random_walk_distance(self):
-        if self.context.target_distance < 0 or self.context.target_distance > 10:
+    def _need_random_walk_distance(self) -> bool:
+        if self.state.target_distance < 0 or self.state.target_distance > 10:
             return False
-        if random.randint(0, 3) != 1:
-            return False
-        return True
+        return random.randint(0, 3) == 1
