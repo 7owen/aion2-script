@@ -52,7 +52,7 @@ class CombatStrategy(BaseStrategy):
     def next_actions(self) -> tuple[StrategyAction, ...]:
         if self.state_name == CombatState.IDLE:
             if self.state.resurrection_box:
-                self.state_name = CombatState.DEATH
+                # self.state_name = CombatState.DEATH
                 return (StrategyAction.RESURRECT_CHARACTER,)
 
             if self.state.has_target:
@@ -60,7 +60,7 @@ class CombatStrategy(BaseStrategy):
                 return (StrategyAction.FIGHT,)
 
             if self.state.need_extract():
-                self.state_name = CombatState.EXTRACT
+                # self.state_name = CombatState.EXTRACT
                 return (StrategyAction.BUFF, StrategyAction.EXTRACT_EQUIPMENT)
 
             if self.cur_try_combat_count < self.config.runtime.max_try_combat_count:
@@ -76,13 +76,13 @@ class CombatStrategy(BaseStrategy):
             self.set_idle_state()
             return (StrategyAction.LOOT,)
 
-        if self.state_name == CombatState.EXTRACT:
-            self.set_idle_state()
-            return (StrategyAction.EXTRACT_EQUIPMENT,)
+        # if self.state_name == CombatState.EXTRACT:
+        #     self.set_idle_state()
+        #     return (StrategyAction.EXTRACT_EQUIPMENT,)
 
-        if self.state_name == CombatState.DEATH:
-            self.set_idle_state()
-            return (StrategyAction.RESURRECT_CHARACTER,)
+        # if self.state_name == CombatState.DEATH:
+        #     self.set_idle_state()
+        #     return (StrategyAction.RESURRECT_CHARACTER,)
 
         return (StrategyAction.NONE,)
 

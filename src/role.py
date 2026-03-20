@@ -3,6 +3,8 @@ from __future__ import annotations
 import random
 from abc import ABC, abstractmethod
 
+import kmbox_net
+
 from bot_config import RoleConfig
 from console import console as console
 from game_context import BotState
@@ -16,11 +18,39 @@ class Role(ABC):
         self,
         config: RoleConfig,
         player_action: PlayerActions,
+        skill_factory: SkillFactory,
         state: BotState,
     ) -> None:
         self.config = config
         self.state = state
         self.player_action = player_action
+
+        create_skill = skill_factory.create_skill
+
+        self.skill_f1 = create_skill(
+            "回血",
+            kmbox_net.KEY_F1,
+            cooldown=15,
+            impact_time=2,
+        )
+
+        self.skill_jump = create_skill("跳跃", kmbox_net.KEY_SPACEBAR)
+
+        self.skill_shift = create_skill(
+            "紧急回避",
+            kmbox_net.KEY_LEFTSHIFT,
+            cooldown=1,
+            impact_time=1,
+        )
+
+    def jump(self) -> bool:
+        return self.skill_jump.use(self.state.target_distance)
+
+    def dodge(self) -> bool:
+        return self.skill_shift.use(self.state.target_distance)
+
+    def heal_self(self) -> bool:
+        return self.skill_f1.use(self.state.target_distance)
 
     @abstractmethod
     def search(self) -> None:
@@ -30,45 +60,27 @@ class Role(ABC):
     def fight(self) -> None:
         pass
 
-    @abstractmethod
     def buff(self) -> None:
         pass
 
-    @abstractmethod
-    def dodge(self) -> bool:
-        pass
-
-    def is_low_health(self) -> bool:
+    def low_health(self) -> bool:
         return (
             self.state.health > 0
             and self.state.health < self.config.low_health_threshold
         )
 
-    def check_low_health(self) -> bool:
-        return self.is_low_health()
-
-    def heal_self(self) -> bool:
-        console.set_note_msg(f"恢复生命, 剩余{self.state.health * 100:.2f}%")
-        return self.player_action.heal(self.state.target_distance)
-
-    def is_close(self) -> bool:
+    def too_close(self) -> bool:
         return (
             self.state.target_distance > 0
             and self.state.target_distance <= self.config.close_distance_threshold
         )
-
-    def check_is_close(self) -> bool:
-        if self.is_close():
-            console.set_note_msg("距离目标太近")
-            return random.randint(0, 1) == 1
-        return False
 
     def get_skill_cd_info(self) -> str:
         cd_parts = []
         for attr_name in dir(self):
             attr_value = getattr(self, attr_name)
             if isinstance(attr_value, Skill):
-                if attr_value.is_off_cooldown():
+                if attr_value.is_ready():
                     cd_parts.append(f"{attr_value.name}")
                 else:
                     remaining = attr_value.get_remaining_cd()

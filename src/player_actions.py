@@ -4,9 +4,8 @@ import time
 import kmbox_net
 
 from console import console as console
-from game_context import BotState, Box
+from game_context import BotState
 from km_driver import KmboxDriver
-from skill import Skill
 
 
 class PlayerActions:
@@ -15,58 +14,39 @@ class PlayerActions:
     def __init__(self, km_driver: KmboxDriver):
         self.kmDriver = km_driver
 
-        self.skill_f1 = Skill(
-            "F1",
-            kmbox_net.KEY_F1,
-            self.kmDriver,
-            cooldown=15,
-            impact_time=2,
-        )
-        self.skill_space = Skill(
-            "空格",
-            kmbox_net.KEY_SPACEBAR,
-            self.kmDriver,
-            cooldown=1,
-            time_consumption=0.5,
-        )
-        self.skill_shift = Skill(
-            "紧急回避",
-            kmbox_net.KEY_LEFTSHIFT,
-            self.kmDriver,
-            cooldown=1,
-            impact_time=1,
-        )
-
         self.move_keys = [
             kmbox_net.KEY_A,
             kmbox_net.KEY_D,
             kmbox_net.KEY_S,
         ]
 
-    def heal(self, target_distance: int) -> bool:
-        return self.skill_f1.use(target_distance)
+    def random_jump(self, role, probability: float) -> bool:
+        if random.random() > probability:
+            return False
+        return role.jump()
 
-    def dodge(self, target_distance: int) -> bool:
-        if not self.skill_shift.is_can_use(target_distance):
+    def random_dodge(self, role, probability: float) -> bool:
+        if random.random() > probability:
             return False
 
         key = random.choice(self.move_keys)
         self.kmDriver.key_down(key)
         try:
-            return self.skill_shift.use(target_distance)
+            return role.dodge()
         finally:
             self.kmDriver.key_up(key)
 
-    def jump(self, target_distance: int) -> bool:
-        return self.skill_space.use(target_distance)
+    def random_walk(self, probability: float) -> bool:
+        if random.random() > probability:
+            return False
 
-    def random_walk(self) -> None:
         key = random.choice(self.move_keys)
         self.kmDriver.key_down(key)
         time.sleep(random.random())
         self.kmDriver.key_up(key)
+        return True
 
-    def press_interact(self) -> None:
+    def press_confirm(self) -> None:
         self.kmDriver.key_press(kmbox_net.KEY_F)
 
     def rotate_view(self) -> None:
@@ -96,12 +76,12 @@ class PlayerActions:
 
     def loot(self) -> None:
         console.set_note_msg("拾取东西")
-        self.press_interact()
+        self.press_confirm()
 
     def extract_equipment(self, state: BotState) -> None:
         self.reset_mouse()
-        self.press_escape()
-        time.sleep(random.random())
+        # self.press_escape()
+        # time.sleep(random.random())
         self.open_inventory()
         time.sleep(random.random())
         self.move_mouse_to(
@@ -119,11 +99,11 @@ class PlayerActions:
         time.sleep(random.random())
         self.click_left()
         time.sleep(random.random())
-        self.press_interact()
+        self.press_confirm()
         time.sleep(random.random())
-        self.press_interact()
+        self.press_confirm()
         time.sleep(1)
-        self.press_interact()
+        self.press_confirm()
         time.sleep(random.random())
         self.press_escape()
         time.sleep(random.random())
