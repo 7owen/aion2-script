@@ -1,19 +1,16 @@
 import warnings
 
 import cv2
-import torch
-from ultralytics.engine.results import Results
-from ultralytics.models.yolo import YOLO
 
-from bot_config import VideoConfig
+from bot_config import config
 
 # 屏蔽掉这个特定的 MPS 警告
 warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
 
 class VideoCapture:
-    def __init__(self, config: VideoConfig) -> None:
-        self.config = config
+    def __init__(self) -> None:
+        self.config = config.video
         self.cap = self.create_cap(
             camera_index=self.config.camera_index,
             frame_width=self.config.frame_width,

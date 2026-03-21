@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from bot_config import BotConfig
+from bot_config import config
 from game_context import BotState
 
 
@@ -10,14 +10,13 @@ class CombatState(Enum):
 
     IDLE = "idle"
     FIGHT = "fight"
-    EXTRACT = "extract"
-    DEATH = "death"
 
 
 class StrategyAction(Enum):
     BUFF = "buff"
     SEARCH = "search"
-    FIGHT = "fight"
+    FIRST_FIGHT = "first_fight"
+    LOOP_FIGHT = "loop_fight"
     LOOT = "loot"
     ROTATE_VIEW = "rotate_view"
     EXTRACT_EQUIPMENT = "extract_equipment"
@@ -26,44 +25,41 @@ class StrategyAction(Enum):
 
 
 class BaseStrategy(ABC):
-    def __init__(self, state: BotState, config: BotConfig):
+    def __init__(self, state: BotState):
         self.state = state
-        self.config = config
 
     @abstractmethod
     def next_actions(self) -> tuple[StrategyAction, ...]:
-        pass
-
-    @abstractmethod
-    def get_state_str(self) -> str:
         pass
 
     @abstractmethod
     def set_idle_state(self) -> None:
         pass
 
+    @abstractmethod
+    def get_status_info(self) -> str:
+        pass
+
 
 class CombatStrategy(BaseStrategy):
-    def __init__(self, state: BotState, config: BotConfig):
-        super().__init__(state, config)
+    def __init__(self, state: BotState):
+        super().__init__(state)
         self.state_name = CombatState.IDLE
         self.cur_try_combat_count = 0
 
     def next_actions(self) -> tuple[StrategyAction, ...]:
         if self.state_name == CombatState.IDLE:
-            if self.state.resurrection_box:
-                # self.state_name = CombatState.DEATH
+            if self.state.resurrection_btn:
                 return (StrategyAction.RESURRECT_CHARACTER,)
 
             if self.state.has_target:
                 self.state_name = CombatState.FIGHT
-                return (StrategyAction.FIGHT,)
+                return (StrategyAction.FIRST_FIGHT,)
 
             if self.state.need_extract():
-                # self.state_name = CombatState.EXTRACT
                 return (StrategyAction.BUFF, StrategyAction.EXTRACT_EQUIPMENT)
 
-            if self.cur_try_combat_count < self.config.runtime.max_try_combat_count:
+            if self.cur_try_combat_count < config.runtime.max_try_combat_count:
                 self.cur_try_combat_count += 1
                 return (StrategyAction.BUFF, StrategyAction.SEARCH)
 
@@ -72,17 +68,9 @@ class CombatStrategy(BaseStrategy):
 
         if self.state_name == CombatState.FIGHT:
             if self.state.has_target:
-                return (StrategyAction.FIGHT,)
+                return (StrategyAction.LOOP_FIGHT,)
             self.set_idle_state()
             return (StrategyAction.LOOT,)
-
-        # if self.state_name == CombatState.EXTRACT:
-        #     self.set_idle_state()
-        #     return (StrategyAction.EXTRACT_EQUIPMENT,)
-
-        # if self.state_name == CombatState.DEATH:
-        #     self.set_idle_state()
-        #     return (StrategyAction.RESURRECT_CHARACTER,)
 
         return (StrategyAction.NONE,)
 
@@ -90,13 +78,8 @@ class CombatStrategy(BaseStrategy):
         self.state_name = CombatState.IDLE
         self.cur_try_combat_count = 0
 
-    def get_state_str(self) -> str:
-        return {
-            CombatState.IDLE: "🔍 寻找目标",
-            CombatState.FIGHT: "⚔️ 战斗中",
-            CombatState.EXTRACT: "🧪 提取中",
-            CombatState.DEATH: "💀 死亡",
-        }.get(self.state_name, str(self.state_name))
+    def get_status_info(self) -> str:
+        return f"{self.state_name} 状态"
 
 
 class MiningState(Enum):
@@ -111,16 +94,16 @@ class MiningState(Enum):
 class MiningStrategy(BaseStrategy):
     """后续扩展的采矿策略示例"""
 
-    def __init__(self, state: BotState, config: BotConfig):
-        super().__init__(state, config)
+    def __init__(self, state: BotState):
+        super().__init__(state)
         self.state_name = MiningState.FINDING_ORE
 
     def next_actions(self) -> tuple[StrategyAction, ...]:
-        if self.state.resurrection_box:
+        if self.state.resurrection_btn:
             self.state_name = MiningState.DEATH
 
         if self.state_name == MiningState.DEFENDING and self.state.has_target:
-            return (StrategyAction.FIGHT,)
+            return (StrategyAction.LOOP_FIGHT,)
 
         if self.state_name == MiningState.DEATH:
             self.set_idle_state()
@@ -131,10 +114,5 @@ class MiningStrategy(BaseStrategy):
     def set_idle_state(self) -> None:
         self.state_name = MiningState.FINDING_ORE
 
-    def get_state_str(self) -> str:
-        return {
-            MiningState.FINDING_ORE: "🔍 寻找矿石",
-            MiningState.MINING: "⛏️ 采矿中",
-            MiningState.DEFENDING: "⚔️ 采矿反击中",
-            MiningState.DEATH: "💀 死亡",
-        }.get(self.state_name, str(self.state_name))
+    def get_status_info(self) -> str:
+        return f"{self.state_name} 状态"

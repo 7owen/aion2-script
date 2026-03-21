@@ -3,14 +3,16 @@ import time
 
 import kmbox_net
 
-from bot_config import KmboxConfig
+from bot_config import config
 from human_mouse import HumanMouseSimulator
 
 
 # ==================== Kmbox 驱动层 ====================
 class KmboxDriver:
-    def __init__(self, config: KmboxConfig | None = None) -> None:
-        self.config = config or KmboxConfig.from_env()
+    def __init__(
+        self,
+    ) -> None:
+        self.config = config.kmbox
         self.screen_width = self.config.screen_width
         self.screen_height = self.config.screen_height
         self.mouse_x = 0
@@ -189,7 +191,3 @@ class KmboxDriver:
         client.enc_mouse_right(True)
         time.sleep(random.randint(60, 120) / 1000)
         client.enc_mouse_right(False)
-
-
-def get_kmbox_driver(config: KmboxConfig | None = None) -> KmboxDriver:
-    return KmboxDriver(config=config)

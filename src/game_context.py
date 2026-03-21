@@ -1,14 +1,12 @@
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+
+from bot_config import config
+from models.role import Role
+from models.target import Target
 
 Box = tuple[int, int, int, int]
-SIGNAL_WINDOW_SECONDS = 3.0
-
-
-class CombatSignal(Enum):
-    LIWEIJIAN = "liweijian"
-    JIAOHUAIZHAN = "jiaohuaizhan"
+BUFF_WINDOW_SECONDS = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,7 +17,7 @@ class PerceptionSnapshot:
     target_box: Box | None = None
     target_distance: int = -1
     resurrection_box: Box | None = None
-    active_signals: frozenset[CombatSignal] = field(default_factory=frozenset)
+    active_buff_codes: frozenset[str] = field(default_factory=frozenset)
     errors: tuple[str, ...] = ()
 
     @property
@@ -27,76 +25,61 @@ class PerceptionSnapshot:
         return self.target_box is not None
 
 
-@dataclass(slots=True)
-class SignalWindow:
-    expires_at: float = float("-inf")
-
-    def activate(self, duration_seconds: float, now: float | None = None) -> None:
-        current_time = time.monotonic() if now is None else now
-        self.expires_at = current_time + duration_seconds
-
-    def is_active(self, now: float | None = None) -> bool:
-        current_time = time.monotonic() if now is None else now
-        return current_time < self.expires_at
-
-    def clear(self) -> None:
-        self.expires_at = float("-inf")
-
-
 class BotState:
     """机器人运行时状态。融合稳定世界状态和最近一帧感知结果。"""
 
-    def __init__(self, extract_interval_seconds: float):
-        self.extract_interval_seconds = extract_interval_seconds
-        self.health = 1.0
-        self.mental = 1.0
-        self.target_box: Box | None = None
-        self.target_distance = -1
-        self.resurrection_box: Box | None = None
+    def __init__(self, role: Role):
+        self.role = role
+        self.target: Target = Target()
+        self.last_target_seen_at = float("-inf")
+        self.resurrection_btn: Box | None = None
         self.latest_perception = PerceptionSnapshot()
-        self.signal_windows = {signal: SignalWindow() for signal in CombatSignal}
         self.next_extract_at = float("inf")
         self.schedule_next_extract()
 
     @property
     def has_target(self) -> bool:
-        return self.target_box is not None
+        return self.target.has_target
 
     def apply_perception(self, snapshot: PerceptionSnapshot) -> None:
         self.latest_perception = snapshot
 
         if snapshot.health is not None:
-            self.health = snapshot.health
+            self.role.health = snapshot.health
 
         if snapshot.mental is not None:
-            self.mental = snapshot.mental
+            self.role.mental = snapshot.mental
 
-        self.target_box = snapshot.target_box
-        self.target_distance = snapshot.target_distance if snapshot.has_target else -1
-        self.resurrection_box = (
-            None if snapshot.has_target else snapshot.resurrection_box
-        )
+        if snapshot.has_target:
+            self.last_target_seen_at = snapshot.captured_at
+            self.target.has_target = snapshot.has_target
+            if snapshot.target_distance > 0:
+                self.target.distance = snapshot.target_distance
 
-        for signal in snapshot.active_signals:
-            self.signal_windows[signal].activate(
-                SIGNAL_WINDOW_SECONDS,
-                now=snapshot.captured_at,
-            )
+            for buff_code in snapshot.active_buff_codes:
+                if self.role.valid_buff(buff_code) and not self.role.buff_activated(
+                    buff_code
+                ):
+                    self.role.active_buff(buff_code, snapshot.captured_at)
+                elif self.target.valid_buff(
+                    buff_code
+                ) and not self.target.buff_activated(buff_code):
+                    self.target.active_buff(buff_code, snapshot.captured_at)
+        elif snapshot.captured_at - self.last_target_seen_at >= BUFF_WINDOW_SECONDS:
+            self.target.clear()
+        else:
+            self.target.has_target = True
+
+        self.resurrection_btn = snapshot.resurrection_box
 
     def reset_perception(self) -> None:
         self.latest_perception = PerceptionSnapshot()
-        self.target_box = None
-        self.target_distance = -1
-        self.resurrection_box = None
+        self.last_target_seen_at = float("-inf")
+        self.target.clear()
+        self.resurrection_btn = None
 
     def need_extract(self) -> bool:
         return time.monotonic() >= self.next_extract_at
 
     def schedule_next_extract(self) -> None:
-        self.next_extract_at = time.monotonic() + self.extract_interval_seconds
-
-    def is_signal_active(self, signal: CombatSignal) -> bool:
-        return self.signal_windows[signal].is_active()
-
-    def consume_signal(self, signal: CombatSignal) -> None:
-        self.signal_windows[signal].clear()
+        self.next_extract_at = time.monotonic() + config.role.extract_interval_seconds

@@ -8,8 +8,9 @@ import easyocr
 import torch
 from ultralytics.models.yolo import YOLO
 
-from bot_config import OcrConfig, OcrRegionConfig, Rect, TemplateMatchConfig
-from game_context import Box, CombatSignal, PerceptionSnapshot
+from bot_config import OcrConfig, OcrRegionConfig, Rect, TemplateMatchConfig, config
+from game_context import Box, PerceptionSnapshot
+from models.skill_data import BAOJI, GEDANG
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,37 +36,36 @@ class LoadedTemplate:
 
 
 class ImageEngine:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
         self.project_root = Path(__file__).resolve().parent.parent
-        self.target_detection_mode = self.config.vision.target_detection_mode.lower()
+        self.target_detection_mode = config.vision.target_detection_mode.lower()
         if self.target_detection_mode not in {"template", "yolo"}:
             raise ValueError(
-                f"不支持的目标识别模式: {self.config.vision.target_detection_mode}"
+                f"不支持的目标识别模式: {config.vision.target_detection_mode}"
             )
 
         self.yolo_model = None
         if self.target_detection_mode == "yolo":
             self.yolo_model = self._create_yolo_model(
-                self.config.video.model_path,
-                prefer_mps=self.config.video.prefer_mps,
+                config.video.model_path,
+                prefer_mps=config.video.prefer_mps,
             )
 
-        self.ocr_reader = self._create_ocr_reader(self.config.ocr)
+        self.ocr_reader = self._create_ocr_reader(config.ocr)
         self.health_spec = self._build_ocr_region_spec(
-            self.config.vision.health_region,
-            self.config.ocr.health_allowlist,
-            self.config.ocr.health_pattern,
+            config.vision.health_region,
+            config.ocr.health_allowlist,
+            config.ocr.health_pattern,
         )
         self.mental_spec = self._build_ocr_region_spec(
-            self.config.vision.mental_region,
-            self.config.ocr.health_allowlist,
-            self.config.ocr.health_pattern,
+            config.vision.mental_region,
+            config.ocr.health_allowlist,
+            config.ocr.health_pattern,
         )
         self.distance_parse_spec = self._build_ocr_parse_spec(
             window_name="Target_Distance",
-            allowlist=self.config.ocr.distance_allowlist,
-            pattern=self.config.ocr.distance_pattern,
+            allowlist=config.ocr.distance_allowlist,
+            pattern=config.ocr.distance_pattern,
         )
         self.templates = self._load_templates()
 
@@ -152,16 +152,14 @@ class ImageEngine:
     def _load_templates(self) -> dict[str, LoadedTemplate]:
         templates = {
             "resurrection": self._load_template(
-                self.config.vision.resurrection_button_match
+                config.vision.resurrection_button_match
             ),
-            "liweijian": self._load_template(self.config.vision.liweijian_icon_match),
-            "jiaohuaizhan": self._load_template(
-                self.config.vision.jiaohuaizhan_icon_match
-            ),
+            "liweijian": self._load_template(config.vision.liweijian_icon_match),
+            "jiaohuaizhan": self._load_template(config.vision.jiaohuaizhan_icon_match),
         }
         if self.target_detection_mode == "template":
             templates["target"] = self._load_template(
-                self.config.vision.top_target_icon_match
+                config.vision.top_target_icon_match
             )
         return templates
 
@@ -301,12 +299,10 @@ class ImageEngine:
 
     def _get_target_search_rect(self) -> Rect:
         return Rect(
-            self.config.vision.frame_crop_x_offset,
-            self.config.vision.frame_crop_y_offset,
-            self.config.vision.frame_crop_x_offset
-            + self.config.vision.frame_crop_width,
-            self.config.vision.frame_crop_y_offset
-            + self.config.vision.frame_crop_height,
+            config.vision.frame_crop_x_offset,
+            config.vision.frame_crop_y_offset,
+            config.vision.frame_crop_x_offset + config.vision.frame_crop_width,
+            config.vision.frame_crop_y_offset + config.vision.frame_crop_height,
         )
 
     def _detect_target_box_with_yolo(self, frame):
@@ -315,9 +311,9 @@ class ImageEngine:
 
         yolo_results = self.yolo_model.predict(
             frame,
-            imgsz=self.config.vision.yolo_imgsz,
+            imgsz=config.vision.yolo_imgsz,
             verbose=False,
-            conf=self.config.vision.yolo_conf,
+            conf=config.vision.yolo_conf,
         )
         return self._get_tag_box(yolo_results, "Top_Target_Tag")
 
@@ -343,7 +339,7 @@ class ImageEngine:
     def analyze(self, frame, include_vitals: bool = True) -> PerceptionSnapshot:
         now = time.monotonic()
         errors: list[str] = []
-        active_signals: set[CombatSignal] = set()
+        active_buffs: set[str] = set()
         target_box = self.get_target_box(frame)
         target_distance = -1
         resurrection_box = None
@@ -351,10 +347,10 @@ class ImageEngine:
         mental = None
 
         if self.is_liweijian_valid(frame):
-            active_signals.add(CombatSignal.LIWEIJIAN)
+            active_buffs.add(BAOJI)
 
         if self.is_jiaohuaizhan_valid(frame):
-            active_signals.add(CombatSignal.JIAOHUAIZHAN)
+            active_buffs.add(GEDANG)
 
         if include_vitals:
             health, health_error = self.get_health_value(frame)
@@ -384,7 +380,7 @@ class ImageEngine:
             target_box=target_box,
             target_distance=target_distance,
             resurrection_box=resurrection_box,
-            active_signals=frozenset(active_signals),
+            active_buff_codes=frozenset(active_buffs),
             errors=tuple(errors),
         )
 
@@ -414,7 +410,7 @@ class ImageEngine:
 
     def _get_distance_box(self, target_box: Box) -> Box:
         t_x1, t_y1, _, _ = target_box
-        distance_box = self.config.vision.target_distance_box
+        distance_box = config.vision.target_distance_box
         return (
             t_x1 + distance_box.x1_offset,
             t_y1 + distance_box.y1_offset,
@@ -435,7 +431,7 @@ class ImageEngine:
         return self._perfect_match_and_locate(self.templates["resurrection"], frame)
 
     def is_liweijian_valid(self, frame):
-        rect = self.config.vision.liweijian_region
+        rect = config.vision.liweijian_region
         skill_status_frame = self._crop_image(frame, rect.x1, rect.y1, rect.x2, rect.y2)
         ret = self._perfect_match_and_locate(
             self.templates["liweijian"],
@@ -444,7 +440,7 @@ class ImageEngine:
         return ret is not None
 
     def is_jiaohuaizhan_valid(self, frame):
-        rect = self.config.vision.liweijian_region
+        rect = config.vision.liweijian_region
         skill_status_frame = self._crop_image(frame, rect.x1, rect.y1, rect.x2, rect.y2)
         ret = self._perfect_match_and_locate(
             self.templates["jiaohuaizhan"], skill_status_frame

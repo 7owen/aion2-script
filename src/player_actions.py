@@ -4,7 +4,6 @@ import time
 import kmbox_net
 
 from console import console as console
-from game_context import BotState
 from km_driver import KmboxDriver
 
 
@@ -56,6 +55,9 @@ class PlayerActions:
         time.sleep(random.random())
         self.kmDriver.mouse_left(False)
 
+    def searching_enemy(self) -> None:
+        self.kmDriver.key_press(kmbox_net.KEY_TAB)
+
     def press_escape(self) -> None:
         self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
 
@@ -78,7 +80,7 @@ class PlayerActions:
         console.set_note_msg("拾取东西")
         self.press_confirm()
 
-    def extract_equipment(self, state: BotState) -> None:
+    def extract_equipment(self) -> None:
         self.reset_mouse()
         # self.press_escape()
         # time.sleep(random.random())
@@ -108,10 +110,8 @@ class PlayerActions:
         self.press_escape()
         time.sleep(random.random())
         self.move_mouse_to_center()
-        state.schedule_next_extract()
 
-    def resurrect_character(self, state: BotState) -> None:
-        btn_box = state.resurrection_box
+    def resurrect_character(self, btn_box) -> None:
         if btn_box is None:
             return
 
@@ -123,4 +123,4 @@ class PlayerActions:
         )
         time.sleep(random.random())
         self.click_left()
-        state.resurrection_box = None
+        time.sleep(1 + random.random())

@@ -5,11 +5,11 @@ import termios
 import time
 import tty
 
+from bot_config import config
 from console import console as console
 from game_context import BotState
 from image_engine import ImageEngine
 from player_actions import PlayerActions
-from role import Role
 from strategy import BaseStrategy, StrategyAction
 from video_capture import VideoCapture
 
@@ -31,22 +31,18 @@ class BotRunner:
         video_capture: VideoCapture,
         image_engine: ImageEngine,
         player_action: PlayerActions,
-        role: Role,
         strategy: BaseStrategy,
-        max_ops_per_second: float,
     ) -> None:
         self.state = state
         self.video_capture = video_capture
         self.image_engine = image_engine
         self.player_action = player_action
-        self.role = role
         self.strategy = strategy
-        self.max_ops_per_second = max_ops_per_second
         self.is_paused = False
 
     def run(self) -> None:
         old_settings = termios.tcgetattr(sys.stdin)
-        period = 1.0 / self.max_ops_per_second
+        period = 1.0 / config.runtime.max_ops_per_second
 
         try:
             print("初始化鼠标校正中。。。。")
@@ -95,27 +91,33 @@ class BotRunner:
         return True
 
     def _dispatch(self, action: StrategyAction) -> None:
+        role = self.state.role
         if action == StrategyAction.BUFF:
-            self.role.buff()
+            role.buff()
         elif action == StrategyAction.SEARCH:
-            self.role.search()
-        elif action == StrategyAction.FIGHT:
-            self.role.fight()
+            role.search()
+        elif action == StrategyAction.FIRST_FIGHT:
+            if self.state.target is not None:
+                role.first_fight(self.state.target)
+        elif action == StrategyAction.LOOP_FIGHT:
+            if self.state.target is not None:
+                role.loop_fight(self.state.target)
         elif action == StrategyAction.LOOT:
             self.player_action.loot()
         elif action == StrategyAction.ROTATE_VIEW:
             self.player_action.rotate_view()
         elif action == StrategyAction.EXTRACT_EQUIPMENT:
-            self.player_action.extract_equipment(self.state)
+            self.player_action.extract_equipment()
+            self.state.schedule_next_extract()
         elif action == StrategyAction.RESURRECT_CHARACTER:
-            self.player_action.resurrect_character(self.state)
+            self.player_action.resurrect_character(self.state.resurrection_btn)
+            self.state.resurrection_btn = None
 
     def _render_dashboard(self) -> None:
         console.render_dashboard(
-            self.strategy.get_state_str(),
+            self.strategy.get_status_info(),
             self.state,
-            self.role,
-            getattr(self.player_action, "kmDriver", None),
+            self.player_action.kmDriver,
         )
 
     def _reset_perception_state(self, err_msg: str | None = None) -> None:

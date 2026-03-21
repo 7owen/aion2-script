@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from km_driver import KmboxDriver
+
 if TYPE_CHECKING:
     from game_context import BotState
-    from km_driver import KmboxDriver
-    from role import Role
 
 
 class StateConsole:
@@ -30,20 +30,17 @@ class StateConsole:
     def render_dashboard(
         self,
         state_str: str,
-        state: "BotState",
-        role: "Role",
-        mouse_driver: "KmboxDriver" | None = None,
+        state: BotState,
+        mouse_driver: KmboxDriver,
     ):
-        mouse_x = "-"
-        mouse_y = "-"
-        if mouse_driver is not None:
-            mouse_x = getattr(mouse_driver, "mouse_x", "-")
-            mouse_y = getattr(mouse_driver, "mouse_y", "-")
+        role = state.role
+        mouse_x = getattr(mouse_driver, "mouse_x", "-")
+        mouse_y = getattr(mouse_driver, "mouse_y", "-")
 
         status_line = (
-            f"生命值: {state.health * 100:.2f}% | "
-            f"活力值: {state.mental * 100:.2f}% | "
-            f"距离: {state.target_distance}米 | "
+            f"生命值: {role.health * 100:.2f}% | "
+            f"活力值: {role.mental * 100:.2f}% | "
+            f"距离: {state.target.distance if state.target else -1}米 | "
             f"鼠标座标: X: {mouse_x}, Y: {mouse_y}"
         )
 
@@ -58,8 +55,6 @@ class StateConsole:
         self._clear_screen()
         print(f"=== {state_str} ===")
         print(content)
-        # self.err_msg = ""
-        # self.note_msg = ""
 
 
 console = StateConsole()
