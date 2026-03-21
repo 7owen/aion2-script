@@ -87,7 +87,7 @@ class ModeConfig:
         default_factory=lambda: _env_enum(
             "BOT_ROLE_TYPE",
             RoleType,
-            RoleType.SWORDSTAR,
+            RoleType.BOWSTAR,
         )
     )
     strategy_type: StrategyType = field(

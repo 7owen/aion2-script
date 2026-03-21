@@ -118,7 +118,7 @@ class RoleBowStar(Role):
             or self.skill_r.use(self.state.target_distance)
         )
 
-    def dodge(self) -> bool:
+    def combo_dodge(self) -> bool:
         return (
             self.skill_6.use(self.state.target_distance)
             or (
@@ -142,7 +142,7 @@ class RoleBowStar(Role):
 
         def check_and_dodge(_: int) -> bool:
             if self.too_close():
-                return self.dodge()
+                return self.combo_dodge()
             return False
 
         def com_skill_q2(target_distance: int) -> bool:
