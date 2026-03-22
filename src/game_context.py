@@ -6,7 +6,6 @@ from models.role import Role
 from models.target import Target
 
 Box = tuple[int, int, int, int]
-BUFF_WINDOW_SECONDS = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +30,6 @@ class BotState:
     def __init__(self, role: Role):
         self.role = role
         self.target: Target = Target()
-        self.last_target_seen_at = float("-inf")
         self.resurrection_btn: Box | None = None
         self.latest_perception = PerceptionSnapshot()
         self.next_extract_at = float("inf")
@@ -51,31 +49,21 @@ class BotState:
             self.role.mental = snapshot.mental
 
         if snapshot.has_target:
-            self.last_target_seen_at = snapshot.captured_at
-            self.target.has_target = snapshot.has_target
-            if snapshot.target_distance > 0:
-                self.target.distance = snapshot.target_distance
+            self.target.set_has_target(snapshot.target_distance)
 
             for buff_code in snapshot.active_buff_codes:
-                if self.role.valid_buff(buff_code) and not self.role.buff_activated(
-                    buff_code
-                ):
+                if not self.role.is_active_buff(buff_code):
                     self.role.active_buff(buff_code, snapshot.captured_at)
-                elif self.target.valid_buff(
-                    buff_code
-                ) and not self.target.buff_activated(buff_code):
+                if not self.target.is_active_buff(buff_code):
                     self.target.active_buff(buff_code, snapshot.captured_at)
-        elif snapshot.captured_at - self.last_target_seen_at >= BUFF_WINDOW_SECONDS:
-            self.target.clear()
         else:
-            self.target.has_target = True
+            self.target.clear_target()
 
         self.resurrection_btn = snapshot.resurrection_box
 
     def reset_perception(self) -> None:
         self.latest_perception = PerceptionSnapshot()
-        self.last_target_seen_at = float("-inf")
-        self.target.clear()
+        self.target.clear_target()
         self.resurrection_btn = None
 
     def need_extract(self) -> bool:

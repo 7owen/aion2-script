@@ -15,8 +15,9 @@ class CombatState(Enum):
 class StrategyAction(Enum):
     BUFF = "buff"
     SEARCH = "search"
-    FIRST_FIGHT = "first_fight"
+    START_FIGHT = "start_fight"
     LOOP_FIGHT = "loop_fight"
+    END_FIGHT = "end_fight"
     LOOT = "loot"
     ROTATE_VIEW = "rotate_view"
     EXTRACT_EQUIPMENT = "extract_equipment"
@@ -54,7 +55,7 @@ class CombatStrategy(BaseStrategy):
 
             if self.state.has_target:
                 self.state_name = CombatState.FIGHT
-                return (StrategyAction.FIRST_FIGHT,)
+                return (StrategyAction.START_FIGHT,)
 
             if self.state.need_extract():
                 return (StrategyAction.BUFF, StrategyAction.EXTRACT_EQUIPMENT)
@@ -70,7 +71,10 @@ class CombatStrategy(BaseStrategy):
             if self.state.has_target:
                 return (StrategyAction.LOOP_FIGHT,)
             self.set_idle_state()
-            return (StrategyAction.LOOT,)
+            return (
+                StrategyAction.END_FIGHT,
+                StrategyAction.LOOT,
+            )
 
         return (StrategyAction.NONE,)
 

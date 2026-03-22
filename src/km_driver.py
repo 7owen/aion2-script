@@ -162,11 +162,10 @@ class KmboxDriver:
 
     def key_press(self, key, duration=None):
         client = self._ensure_client()
+
         if duration is None:
             duration = random.randint(60, 120) / 1000
-        client.enc_keydown(key)
-        time.sleep(duration)
-        client.enc_keyup(key)
+        client.enc_keypress(key, int(duration * 1000))
 
     def key_down(self, key):
         self._ensure_client().keydown(key)

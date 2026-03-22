@@ -6,8 +6,15 @@ from typing import TYPE_CHECKING
 from bot_config import config
 from player_actions import PlayerActions
 
+from .buff import Buff
 from .creature import Creature
-from .skill_data import COMMON_SKILLS, HUIXUE, JINJIHUIBI, TIAOYUE
+from .skill_data import (
+    COMMON_SKILLS,
+    ROLE_BUFFS,
+    SKILL_HUIXUE,
+    SKILL_JINJIHUIBI,
+    SKILL_TIAOYUE,
+)
 from .target import Target
 
 if TYPE_CHECKING:
@@ -24,18 +31,21 @@ class Role(Creature, ABC):
         self.config = config.role
         self.player_action = player_action
 
+        for buff_metadata in ROLE_BUFFS:
+            self.buffs[buff_metadata.code] = Buff(buff_metadata)
+
         create_skill = skill_factory.create_skill
-        for skill_code in COMMON_SKILLS:
-            self.skills[skill_code] = create_skill(COMMON_SKILLS[skill_code], self)
+        for skill_metadata in COMMON_SKILLS:
+            self.skills[skill_metadata.code] = create_skill(skill_metadata, self)
 
     def jump(self) -> bool:
-        return self.skills[TIAOYUE].use()
+        return self.skills[SKILL_TIAOYUE].use()
 
     def dodge(self) -> bool:
-        return self.skills[JINJIHUIBI].use()
+        return self.skills[SKILL_JINJIHUIBI].use()
 
     def heal_self(self) -> bool:
-        return self.skills[HUIXUE].use()
+        return self.skills[SKILL_HUIXUE].use()
 
     @abstractmethod
     def search(self) -> None:

@@ -11,11 +11,15 @@ class Target(Creature):
         self.distance: int = -1
         self.has_target: bool = False
 
-        for buff_code in TARGET_BUFFS:
-            self.buffs[buff_code] = Buff(TARGET_BUFFS[buff_code])
+        for buff_metadata in TARGET_BUFFS:
+            self.buffs[buff_metadata.code] = Buff(buff_metadata)
 
-    def clear(self) -> None:
+    def set_has_target(self, distance: int) -> None:
+        self.has_target = True
+        if distance >= 0:
+            self.distance = distance
+
+    def clear_target(self) -> None:
         self.distance = -1
         self.has_target = False
-        for buff_code in self.buffs:
-            self.buffs[buff_code].clear()
+        self.clear_buffs()

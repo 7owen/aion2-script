@@ -10,7 +10,7 @@ from ultralytics.models.yolo import YOLO
 
 from bot_config import OcrConfig, OcrRegionConfig, Rect, TemplateMatchConfig, config
 from game_context import Box, PerceptionSnapshot
-from models.skill_data import BAOJI, GEDANG
+from models.skill_data import BUFF_BAOJI, BUFF_GEDANG
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,10 +347,10 @@ class ImageEngine:
         mental = None
 
         if self.is_liweijian_valid(frame):
-            active_buffs.add(BAOJI)
+            active_buffs.add(BUFF_BAOJI)
 
         if self.is_jiaohuaizhan_valid(frame):
-            active_buffs.add(GEDANG)
+            active_buffs.add(BUFF_GEDANG)
 
         if include_vitals:
             health, health_error = self.get_health_value(frame)

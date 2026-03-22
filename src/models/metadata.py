@@ -19,7 +19,7 @@ class GameEntity:
 class BuffMetadata(GameEntity):
     """Buff元数据"""
 
-    def __init__(self, code: str, name: str = "", duration: float = 0.0):
+    def __init__(self, code: str, name: str, duration: float):
         super().__init__(code=code, name=name)
         self.duration = duration
 

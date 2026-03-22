@@ -3,24 +3,22 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from .buff import Buff
 from .role import Role
 from .skill_data import (
-    BAOZHAJIAN,
-    BAOZHAQUANTAO,
-    BOWSTAR_BUFFS,
     BOWSTAR_SKILLS,
-    FENGKUANGJIAN,
-    JIANSHIFENGBAO,
-    JUJI,
-    LIZHUIJIAN,
-    MIAOZHUNJIAN,
-    MUBIAOJIAN,
-    POLIEJIAN,
-    SUSHE,
-    TAOSUOJIAN,
-    TUJITI,
-    YAZHIJIAN,
+    SKILL_BAOZHAJIAN,
+    SKILL_BAOZHAQUANTAO,
+    SKILL_FENGKUANGJIAN,
+    SKILL_JIANSHIFENGBAO,
+    SKILL_JUJI,
+    SKILL_LIZHUIJIAN,
+    SKILL_MIAOZHUNJIAN,
+    SKILL_MUBIAOJIAN,
+    SKILL_POLIEJIAN,
+    SKILL_SUSHE,
+    SKILL_TAOSUOJIAN,
+    SKILL_TUJITI,
+    SKILL_YAZHIJIAN,
 )
 from .target import Target
 
@@ -39,18 +37,15 @@ class RoleBowStar(Role):
             skill_factory=skill_factory,
         )
 
-        for buff_code in BOWSTAR_BUFFS:
-            self.buffs[buff_code] = Buff(BOWSTAR_BUFFS[buff_code])
-
         create_skill = skill_factory.create_skill
-        for skill_code in BOWSTAR_SKILLS:
-            self.skills[skill_code] = create_skill(BOWSTAR_SKILLS[skill_code], self)
+        for skill_metadata in BOWSTAR_SKILLS:
+            self.skills[skill_metadata.code] = create_skill(skill_metadata, self)
 
     def combo_dodge(self, target: Target) -> bool:
         return (
-            self.skills[TUJITI].use(target)
+            self.skills[SKILL_TUJITI].use(target)
             or (
-                self.skills[BAOZHAQUANTAO].use(target)
+                self.skills[SKILL_BAOZHAQUANTAO].use(target)
                 and self.player_action.random_dodge(self, 1)
             )
             or self.player_action.random_dodge(self, 1)
@@ -59,12 +54,13 @@ class RoleBowStar(Role):
     def search(self) -> None:
         if self.low_health():
             self.heal_self()
-        self.skills[JUJI].use()
+        self.player_action.searching_enemy()
 
     def first_fight(self, target: Target) -> None:
-        _ = self.skills[JIANSHIFENGBAO].use(target) or self.skills[TAOSUOJIAN].use(
-            target
-        )
+        self.skills[SKILL_JUJI].use()
+        _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
+            SKILL_TAOSUOJIAN
+        ].use(target)
 
     def loop_fight(self, target: Target) -> None:
         if target.distance > 20:
@@ -83,24 +79,24 @@ class RoleBowStar(Role):
 
         skills_to_use = [
             check_and_dodge,
-            self.skills[POLIEJIAN].use,
-            self.skills[LIZHUIJIAN].use,
-            self.skills[YAZHIJIAN].use,
-            self.skills[MIAOZHUNJIAN].use,
-            self.skills[MUBIAOJIAN].use,
+            self.skills[SKILL_YAZHIJIAN].use,
+            self.skills[SKILL_LIZHUIJIAN].use,
+            self.skills[SKILL_POLIEJIAN].use,
+            self.skills[SKILL_MIAOZHUNJIAN].use,
+            self.skills[SKILL_MUBIAOJIAN].use,
         ]
 
         skills_to_use2 = [
-            self.skills[FENGKUANGJIAN].use,
-            self.skills[BAOZHAJIAN].use,
+            self.skills[SKILL_FENGKUANGJIAN].use,
+            self.skills[SKILL_BAOZHAJIAN].use,
         ]
         random.shuffle(skills_to_use2)
-        skills_to_use2.append(self.skills[SUSHE].use)
+        skills_to_use2.append(self.skills[SKILL_SUSHE].use)
         for skill_use in skills_to_use + skills_to_use2:
             if skill_use(target):
                 return
 
-        self.skills[TAOSUOJIAN].use(target)
+        self.skills[SKILL_TAOSUOJIAN].use(target)
 
     # def buff(self) -> None:
     #     pass

@@ -88,6 +88,7 @@ class ModeConfig:
             "BOT_ROLE_TYPE",
             RoleType,
             RoleType.BOWSTAR,
+            # RoleType.SWORDSTAR,
         )
     )
     strategy_type: StrategyType = field(

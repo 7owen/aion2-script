@@ -58,8 +58,8 @@ class Skill:
 
         for bc in self.metadata.require_buff_codes:
             # 检查自己或目标是否有该 Buff
-            if self.for_role.buff_activated(bc) or (
-                target and target.buff_activated(bc)
+            if self.for_role.is_active_buff(bc) or (
+                target and target.is_active_buff(bc)
             ):
                 return True
 
@@ -77,10 +77,10 @@ class Skill:
             if i < self.metadata.press_count - 1:
                 time.sleep(self.metadata.press_interval)
 
-        for bc in self.metadata.require_buff_codes:
-            self.for_role.consume_buff(bc)
-            if target:
-                target.consume_buff(bc)
+        # for bc in self.metadata.require_buff_codes:
+        #     self.for_role.consume_buff(bc)
+        #     if target:
+        #         target.consume_buff(bc)
 
         wait_time = self.metadata.time_consumption - (time.monotonic() - used_at)
         if wait_time > 0:
@@ -90,9 +90,8 @@ class Skill:
         if self.metadata.generate_buff_codes:
             for bc in self.metadata.generate_buff_codes:
                 now = time.monotonic()
-                if self.for_role.valid_buff(bc):
-                    self.for_role.active_buff(bc, now)
-                elif target and target.valid_buff(bc):
+                self.for_role.active_buff(bc, now)
+                if target is not None:
                     target.active_buff(bc, now)
 
         return True

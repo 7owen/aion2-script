@@ -96,7 +96,7 @@ class BotRunner:
             role.buff()
         elif action == StrategyAction.SEARCH:
             role.search()
-        elif action == StrategyAction.FIRST_FIGHT:
+        elif action == StrategyAction.START_FIGHT:
             if self.state.target is not None:
                 role.first_fight(self.state.target)
         elif action == StrategyAction.LOOP_FIGHT:
