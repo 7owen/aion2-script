@@ -43,7 +43,7 @@ class RoleSwordStar(Role):
         self.player_action.searching_enemy()
 
     def first_fight(self, target: Target) -> None:
-        self.skills[SKILL_RUILIYIJI].use(target)
+        # self.skills[SKILL_RUILIYIJI].use(target)
         _ = (
             self.skills[SKILL_QIANGXIYIJI].use(target)
             or self.skills[SKILL_POMIEMENGJI].use(target)

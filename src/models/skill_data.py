@@ -74,7 +74,12 @@ ROLE_BUFFS = [
 COMMON_SKILLS = [
     SkillMetadata(SKILL_HUIXUE, "回血", kmbox_net.KEY_F1, cooldown=15),
     SkillMetadata(SKILL_TIAOYUE, "跳跃", kmbox_net.KEY_SPACEBAR, time_consumption=1),
-    SkillMetadata(SKILL_JINJIHUIBI, "紧急回避", kmbox_net.KEY_LEFTSHIFT, cooldown=1),
+    SkillMetadata(
+        SKILL_JINJIHUIBI,
+        "紧急回避",
+        kmbox_net.KEY_LEFTSHIFT,
+        cooldown=1,
+    ),
 ]
 
 SWORDSTAR_SKILLS = [
@@ -94,7 +99,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_3,
         cooldown=20,
         max_range=4,
-        time_consumption=1,
+        time_consumption=1.5,
         press_count=2,
     ),
     SkillMetadata(SKILL_POMIEMENGJI, "破灭猛击", kmbox_net.KEY_4, cooldown=30),
@@ -121,7 +126,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_7,
         cooldown=45,
         max_range=4,
-        time_consumption=1,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_CAN_XIAPANJI],
     ),
     SkillMetadata(
@@ -158,9 +163,8 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_E,
         cooldown=5,
         max_range=4,
-        time_consumption=1.5,
+        time_consumption=1.8,
         press_count=2,
-        press_interval=0.3,
         require_buff_codes=[BUFF_JIDAO, BUFF_CAN_XIAPANJI],
     ),
 ]

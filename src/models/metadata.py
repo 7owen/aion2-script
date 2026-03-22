@@ -37,7 +37,7 @@ class SkillMetadata(GameEntity):
         time_consumption: float = 0.5,
         press_holdon: float | None = None,
         press_count: int = 1,
-        press_interval: float = 0.5,
+        press_interval: float = 0.3,
         require_buff_codes: list[str] = [],
         generate_buff_codes: list[str] = [],
     ):

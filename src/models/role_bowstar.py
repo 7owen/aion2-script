@@ -57,7 +57,7 @@ class RoleBowStar(Role):
         self.player_action.searching_enemy()
 
     def first_fight(self, target: Target) -> None:
-        self.skills[SKILL_JUJI].use()
+        # self.skills[SKILL_JUJI].use()
         _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
             SKILL_TAOSUOJIAN
         ].use(target)
