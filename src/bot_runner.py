@@ -45,9 +45,10 @@ class BotRunner:
         period = 1.0 / config.runtime.max_ops_per_second
 
         try:
-            print("初始化鼠标校正中。。。。")
-            self.player_action.reset_mouse()
-            self.player_action.move_mouse_to_center()
+            # print("初始化鼠标校正中。。。。")
+            # self.player_action.reset_mouse()
+            # time.sleep(0.5)
+            # self.player_action.move_mouse_to_center()
             tty.setcbreak(sys.stdin.fileno())
 
             while True:

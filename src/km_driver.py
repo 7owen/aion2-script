@@ -115,10 +115,6 @@ class KmboxDriver:
         self.mouse_y = 0
         # print(self.mouse_x, self.mouse_y)
 
-    def initialize_mouse_track(self):
-        self.mouse_reset()
-        self.move_any_center()
-
     def move_any_center(self):
         center_x = self.screen_width // 2
         center_y = self.screen_height // 2

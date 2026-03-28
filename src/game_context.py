@@ -52,10 +52,13 @@ class BotState:
             self.target.set_has_target(snapshot.target_distance)
 
             for buff_code in snapshot.active_buff_codes:
-                if not self.role.is_active_buff(buff_code):
-                    self.role.active_buff(buff_code, snapshot.captured_at)
-                if not self.target.is_active_buff(buff_code):
-                    self.target.active_buff(buff_code, snapshot.captured_at)
+                # print(f"产生buff{buff_code}")
+                self.role.active_buff(buff_code, snapshot.captured_at)
+                self.target.active_buff(buff_code, snapshot.captured_at)
+                # if not self.role.is_active_buff(buff_code):
+                #     self.role.active_buff(buff_code, snapshot.captured_at)
+                # if not self.target.is_active_buff(buff_code):
+                #     self.target.active_buff(buff_code, snapshot.captured_at)
         else:
             self.target.clear_target()
 

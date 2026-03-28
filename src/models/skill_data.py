@@ -126,7 +126,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_7,
         cooldown=45,
         max_range=4,
-        time_consumption=1.5,
+        time_consumption=2,
         generate_buff_codes=[BUFF_CAN_XIAPANJI],
     ),
     SkillMetadata(
@@ -154,7 +154,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_Q,
         cooldown=45,
         max_range=4,
-        # time_consumption=1,
+        time_consumption=1,
         require_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -163,8 +163,8 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_E,
         cooldown=5,
         max_range=4,
-        time_consumption=1.8,
-        press_count=2,
+        time_consumption=1,
+        # press_count=2,
         require_buff_codes=[BUFF_JIDAO, BUFF_CAN_XIAPANJI],
     ),
 ]

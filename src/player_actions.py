@@ -30,10 +30,9 @@ class PlayerActions:
 
         key = random.choice(self.move_keys)
         self.kmDriver.key_down(key)
-        try:
-            return role.dodge()
-        finally:
-            self.kmDriver.key_up(key)
+        role.dodge()
+        self.kmDriver.key_up(key)
+        return True
 
     def random_walk(self, probability: float) -> bool:
         if random.random() > probability:

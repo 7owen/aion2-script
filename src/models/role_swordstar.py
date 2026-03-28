@@ -67,12 +67,12 @@ class RoleSwordStar(Role):
             return False
 
         skills_to_use = [
-            self.skills[SKILL_KONGZHONGJIEFU].use,
             self.skills[SKILL_XIAPANJI].use,
+            self.skills[SKILL_KONGZHONGJIEFU].use,
             self.skills[SKILL_JIAOHUAIZHAN].use,
-            self.skills[SKILL_FENSUIBODONG].use,
         ]
         skills_to_use2 = [
+            self.skills[SKILL_FENSUIBODONG].use,
             self.skills[SKILL_QIANGXIYIJI].use,
             self.skills[SKILL_FENNUBODONG].use,
             self.skills[SKILL_JINUBAOZHA].use,

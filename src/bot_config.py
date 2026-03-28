@@ -66,7 +66,7 @@ class RuntimeConfig:
     """机器人运行时的控制参数。"""
 
     max_try_combat_count: int = 3  # 单次战斗尝试的最大次数
-    max_ops_per_second: float = 2  # 每秒允许的最大操作频率（防止动作过快被检测）
+    max_ops_per_second: float = 3  # 每秒允许的最大操作频率（防止动作过快被检测）
 
 
 class RoleType(Enum):
@@ -87,8 +87,8 @@ class ModeConfig:
         default_factory=lambda: _env_enum(
             "BOT_ROLE_TYPE",
             RoleType,
-            # RoleType.BOWSTAR,
-            RoleType.SWORDSTAR,
+            RoleType.BOWSTAR,
+            # RoleType.SWORDSTAR,
         )
     )
     strategy_type: StrategyType = field(
