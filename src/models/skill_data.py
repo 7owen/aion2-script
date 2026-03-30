@@ -83,14 +83,20 @@ COMMON_SKILLS = [
 ]
 
 SWORDSTAR_SKILLS = [
-    SkillMetadata(SKILL_TIAOYUEGONGJI, "跳跃攻击", kmbox_net.KEY_1, cooldown=16),
+    SkillMetadata(
+        SKILL_TIAOYUEGONGJI,
+        "跳跃攻击",
+        kmbox_net.KEY_1,
+        time_consumption=1,
+        cooldown=16,
+    ),
     SkillMetadata(
         SKILL_ROULINJIAN,
         "蹂躏剑",
         kmbox_net.KEY_2,
         cooldown=20,
         max_range=4,
-        time_consumption=1.5,
+        time_consumption=2,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -109,7 +115,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_5,
         cooldown=60,
         max_range=4,
-        time_consumption=1,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -117,7 +123,7 @@ SWORDSTAR_SKILLS = [
         "强袭一击",
         kmbox_net.KEY_6,
         cooldown=120,
-        time_consumption=1,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -135,6 +141,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_E,
         cooldown=10,
         max_range=4,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_JIDAO],
         require_buff_codes=[BUFF_GEDANG],
     ),
@@ -146,6 +153,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_Q,
         cooldown=20,
         max_range=4,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(

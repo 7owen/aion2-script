@@ -99,10 +99,12 @@ class BotRunner:
             role.search()
         elif action == StrategyAction.START_FIGHT:
             if self.state.target is not None:
-                role.first_fight(self.state.target)
+                role.start_fight(self.state.target)
         elif action == StrategyAction.LOOP_FIGHT:
             if self.state.target is not None:
                 role.loop_fight(self.state.target)
+        elif action == StrategyAction.END_FIGHT:
+            role.end_fight(self.state.target)
         elif action == StrategyAction.LOOT:
             self.player_action.loot()
         elif action == StrategyAction.ROTATE_VIEW:

@@ -42,13 +42,18 @@ class RoleSwordStar(Role):
             self.heal_self()
         self.player_action.searching_enemy()
 
-    def first_fight(self, target: Target) -> None:
-        # self.skills[SKILL_RUILIYIJI].use(target)
+    def start_fight(self, target: Target) -> None:
+        self.skills[SKILL_RUILIYIJI].use(target)
+        # self.player_action.hold_normal_fight_key()
         _ = (
             self.skills[SKILL_QIANGXIYIJI].use(target)
             or self.skills[SKILL_POMIEMENGJI].use(target)
             or self.skills[SKILL_TIAOYUEGONGJI].use(target)
         )
+
+    def end_fight(self, target: Target) -> None:
+        pass
+        # self.player_action.release_normal_fight_key()
 
     def loop_fight(self, target: Target) -> None:
         if target.distance > 20:

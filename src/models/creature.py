@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from .buff import Buff
 from .skill import Skill
 
@@ -28,3 +30,12 @@ class Creature:
     def clear_buffs(self) -> None:
         for buff in self.buffs.values():
             buff.clear()
+
+    def get_buff_info(self) -> str:
+        active_buffs = []
+        now = time.monotonic()
+        for buff in self.buffs.values():
+            if buff.is_activated():
+                remaining = buff.expires_at - now
+                active_buffs.append(f"{buff.name}({remaining:.1f}s)")
+        return " | ".join(active_buffs) if active_buffs else "无"

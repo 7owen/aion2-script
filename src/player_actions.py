@@ -55,9 +55,15 @@ class PlayerActions:
         self.kmDriver.mouse_left(False)
 
     def searching_enemy(self) -> None:
-        # self.kmDriver.key_press(kmbox_net.KEY_TAB)
-        self.kmDriver.key_press(kmbox_net.KEY_R)
+        self.kmDriver.key_press(kmbox_net.KEY_TAB)
+        # self.kmDriver.key_press(kmbox_net.KEY_R)
         time.sleep(0.3)
+
+    def hold_normal_fight_key(self) -> None:
+        self.kmDriver.key_down(kmbox_net.KEY_R)
+
+    def release_normal_fight_key(self) -> None:
+        self.kmDriver.key_up(kmbox_net.KEY_R)
 
     def press_escape(self) -> None:
         self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)

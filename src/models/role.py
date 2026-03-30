@@ -52,11 +52,15 @@ class Role(Creature, ABC):
         pass
 
     @abstractmethod
-    def first_fight(self, target: Target) -> None:
+    def start_fight(self, target: Target) -> None:
         pass
 
     @abstractmethod
     def loop_fight(self, target: Target) -> None:
+        pass
+
+    @abstractmethod
+    def end_fight(self, target: Target) -> None:
         pass
 
     def buff(self) -> None:

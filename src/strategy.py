@@ -54,6 +54,7 @@ class CombatStrategy(BaseStrategy):
                 return (StrategyAction.RESURRECT_CHARACTER,)
 
             if self.state.has_target:
+                self.cur_try_combat_count = 0
                 self.state_name = CombatState.FIGHT
                 return (StrategyAction.START_FIGHT,)
 

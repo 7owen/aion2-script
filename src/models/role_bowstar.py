@@ -56,11 +56,14 @@ class RoleBowStar(Role):
             self.heal_self()
         self.player_action.searching_enemy()
 
-    def first_fight(self, target: Target) -> None:
-        # self.skills[SKILL_JUJI].use()
+    def start_fight(self, target: Target) -> None:
+        self.skills[SKILL_JUJI].use()
         _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
             SKILL_TAOSUOJIAN
         ].use(target)
+
+    def end_fight(self, target: Target) -> None:
+        pass
 
     def loop_fight(self, target: Target) -> None:
         if target.distance > 20:
@@ -79,8 +82,8 @@ class RoleBowStar(Role):
 
         skills_to_use = [
             check_and_dodge,
-            self.skills[SKILL_YAZHIJIAN].use,
             self.skills[SKILL_LIZHUIJIAN].use,
+            self.skills[SKILL_YAZHIJIAN].use,
             self.skills[SKILL_POLIEJIAN].use,
             self.skills[SKILL_MIAOZHUNJIAN].use,
             self.skills[SKILL_MUBIAOJIAN].use,

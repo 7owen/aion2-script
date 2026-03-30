@@ -46,6 +46,8 @@ class StateConsole:
 
         content = (
             f"{status_line}"
+            f"\n自身状态: {role.get_buff_info()}"
+            f"\n敌方状态: {state.target.get_buff_info() if state.target else '无'}"
             f"\n技能状态: {role.get_skill_cd_info()}"
             f"\n通知信息: {self.note_msg}"
             f"\n异常信息: {self.err_msg}"
