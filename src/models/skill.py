@@ -43,6 +43,9 @@ class Skill:
         return max(0, self.metadata.cooldown - elapsed)
 
     def can_use(self, target: Target | None = None) -> bool:
+        # if self.for_role.is_casting():
+        #     return False
+
         if not self.ready():
             return False
 
@@ -71,6 +74,7 @@ class Skill:
 
         used_at = time.monotonic()
         self.last_used_at = used_at
+        self.for_role.action_end_at = used_at + self.metadata.time_consumption
 
         for i in range(self.metadata.press_count):
             self._press_once()
@@ -81,10 +85,6 @@ class Skill:
         #     self.for_role.consume_buff(bc)
         #     if target:
         #         target.consume_buff(bc)
-
-        wait_time = self.metadata.time_consumption - (time.monotonic() - used_at)
-        if wait_time > 0:
-            time.sleep(wait_time)
 
         # 4. 生成 Buff
         if self.metadata.generate_buff_codes:

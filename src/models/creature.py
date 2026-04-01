@@ -14,6 +14,10 @@ class Creature:
         self.mental: float = 1.0
         self.buffs: dict[str, Buff] = {}
         self.skills: dict[str, Skill] = {}
+        self.action_end_at: float = 0.0
+
+    def is_casting(self) -> bool:
+        return time.monotonic() < self.action_end_at
 
     def is_active_buff(self, buff_code: str) -> bool:
         return buff_code in self.buffs and self.buffs[buff_code].is_activated()

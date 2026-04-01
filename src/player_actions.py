@@ -15,6 +15,11 @@ class PlayerActions:
 
         self.move_keys = [
             kmbox_net.KEY_A,
+            kmbox_net.KEY_S,
+        ]
+
+        self.dodge_keys = [
+            kmbox_net.KEY_A,
             kmbox_net.KEY_D,
             kmbox_net.KEY_S,
         ]
@@ -28,9 +33,10 @@ class PlayerActions:
         if random.random() > probability:
             return False
 
-        key = random.choice(self.move_keys)
+        key = random.choice(self.dodge_keys)
         self.kmDriver.key_down(key)
         role.dodge()
+        # self.kmDriver.key_press(kmbox_net.KEY_LEFTSHIFT)
         self.kmDriver.key_up(key)
         return True
 

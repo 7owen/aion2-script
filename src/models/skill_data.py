@@ -79,6 +79,7 @@ COMMON_SKILLS = [
         "紧急回避",
         kmbox_net.KEY_LEFTSHIFT,
         cooldown=1,
+        # time_consumption=1,
     ),
 ]
 
@@ -96,7 +97,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_2,
         cooldown=20,
         max_range=4,
-        time_consumption=2,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -115,7 +116,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_5,
         cooldown=60,
         max_range=4,
-        time_consumption=1.5,
+        time_consumption=0.8,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -132,7 +133,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_7,
         cooldown=45,
         max_range=4,
-        time_consumption=2,
+        time_consumption=1.5,
         generate_buff_codes=[BUFF_CAN_XIAPANJI],
     ),
     SkillMetadata(
@@ -141,7 +142,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_E,
         cooldown=10,
         max_range=4,
-        time_consumption=1.5,
+        # time_consumption=1,
         generate_buff_codes=[BUFF_JIDAO],
         require_buff_codes=[BUFF_GEDANG],
     ),
@@ -152,8 +153,8 @@ SWORDSTAR_SKILLS = [
         "突进一击",
         kmbox_net.KEY_Q,
         cooldown=20,
-        max_range=4,
-        time_consumption=1.5,
+        max_range=16,
+        # time_consumption=1,
         generate_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -162,7 +163,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_Q,
         cooldown=45,
         max_range=4,
-        time_consumption=1,
+        time_consumption=0.8,
         require_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
@@ -171,7 +172,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_E,
         cooldown=5,
         max_range=4,
-        time_consumption=1,
+        time_consumption=0.8,
         # press_count=2,
         require_buff_codes=[BUFF_JIDAO, BUFF_CAN_XIAPANJI],
     ),
@@ -199,7 +200,6 @@ BOWSTAR_SKILLS = [
         "爆炸圈套",
         kmbox_net.KEY_3,
         cooldown=20,
-        max_range=20,
     ),
     SkillMetadata(
         SKILL_MIAOZHUNJIAN,

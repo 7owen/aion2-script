@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import time
+from asyncio import sleep
 from typing import TYPE_CHECKING
 
 from .role import Role
@@ -44,19 +46,22 @@ class RoleBowStar(Role):
     def combo_dodge(self, target: Target) -> bool:
         return (
             self.skills[SKILL_TUJITI].use(target)
-            or (
-                self.skills[SKILL_BAOZHAQUANTAO].use(target)
-                and self.player_action.random_dodge(self, 1)
-            )
+            or self.skills[SKILL_BAOZHAQUANTAO].use(target)
             or self.player_action.random_dodge(self, 1)
         )
 
     def search(self) -> None:
+        if self.is_casting():
+            return
+
         if self.low_health():
             self.heal_self()
         self.player_action.searching_enemy()
 
     def start_fight(self, target: Target) -> None:
+        if self.is_casting():
+            return
+
         self.skills[SKILL_JUJI].use()
         _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
             SKILL_TAOSUOJIAN
@@ -66,6 +71,9 @@ class RoleBowStar(Role):
         pass
 
     def loop_fight(self, target: Target) -> None:
+        if self.is_casting():
+            return
+
         if target.distance > 20:
             self.player_action.random_jump(self, 0.25)
 

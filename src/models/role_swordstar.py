@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from typing import TYPE_CHECKING
 
 from .role import Role
@@ -38,11 +39,17 @@ class RoleSwordStar(Role):
             self.skills[skill_metadata.code] = create_skill(skill_metadata, self)
 
     def search(self) -> None:
+        if self.is_casting():
+            return
+
         if self.low_health():
             self.heal_self()
         self.player_action.searching_enemy()
 
     def start_fight(self, target: Target) -> None:
+        if self.is_casting():
+            return
+
         self.skills[SKILL_RUILIYIJI].use(target)
         # self.player_action.hold_normal_fight_key()
         _ = (
@@ -56,6 +63,9 @@ class RoleSwordStar(Role):
         # self.player_action.release_normal_fight_key()
 
     def loop_fight(self, target: Target) -> None:
+        if self.is_casting():
+            return
+
         if target.distance > 20:
             self.player_action.random_jump(self, 0.25)
 
@@ -67,8 +77,9 @@ class RoleSwordStar(Role):
 
         def com_skill_q2(target: Target) -> bool:
             if self.skills[SKILL_TUJINYIJI].can_use(target):
-                if self.player_action.random_dodge(self, 1):
-                    return self.skills[SKILL_TUJINYIJI].use(target)
+                self.player_action.random_dodge(self, 1)
+                time.sleep(0.3)
+                return self.skills[SKILL_TUJINYIJI].use(target)
             return False
 
         skills_to_use = [
