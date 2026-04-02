@@ -35,7 +35,9 @@ class PlayerActions:
 
         key = random.choice(self.dodge_keys)
         self.kmDriver.key_down(key)
+        time.sleep(0.1)
         role.dodge()
+        time.sleep(0.1)
         # self.kmDriver.key_press(kmbox_net.KEY_LEFTSHIFT)
         self.kmDriver.key_up(key)
         return True

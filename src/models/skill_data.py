@@ -109,7 +109,9 @@ SWORDSTAR_SKILLS = [
         time_consumption=1.5,
         press_count=2,
     ),
-    SkillMetadata(SKILL_POMIEMENGJI, "破灭猛击", kmbox_net.KEY_4, cooldown=30),
+    SkillMetadata(
+        SKILL_POMIEMENGJI, "破灭猛击", kmbox_net.KEY_4, cooldown=30, time_consumption=1
+    ),
     SkillMetadata(
         SKILL_FENNUBODONG,
         "愤怒波动",
@@ -163,7 +165,7 @@ SWORDSTAR_SKILLS = [
         kmbox_net.KEY_Q,
         cooldown=45,
         max_range=4,
-        time_consumption=0.8,
+        time_consumption=1,
         require_buff_codes=[BUFF_JIDAO],
     ),
     SkillMetadata(
