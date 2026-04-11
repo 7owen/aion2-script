@@ -34,4 +34,7 @@ class VideoCapture:
 
     def release(self):
         self.cap.release()
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass

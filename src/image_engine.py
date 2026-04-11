@@ -4,13 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
-import easyocr
-import torch
-from ultralytics.models.yolo import YOLO
 
-from bot_config import OcrConfig, OcrRegionConfig, Rect, TemplateMatchConfig, config
+from bot_config import OcrRegionConfig, Rect, TemplateMatchConfig, config
 from game_context import Box, PerceptionSnapshot
 from models.skill_data import BUFF_BAOJI, BUFF_GEDANG
+from ocr_reader import OcrReaderWrapper
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,12 +44,14 @@ class ImageEngine:
 
         self.yolo_model = None
         if self.target_detection_mode == "yolo":
-            self.yolo_model = self._create_yolo_model(
-                config.video.model_path,
+            from yolo_detector import YoloDetector
+
+            self.yolo_model = YoloDetector(
+                str(self._resolve_path(config.video.model_path)),
                 prefer_mps=config.video.prefer_mps,
             )
 
-        self.ocr_reader = self._create_ocr_reader(config.ocr)
+        self.ocr_reader = OcrReaderWrapper(config.ocr)
         self.health_spec = self._build_ocr_region_spec(
             config.vision.health_region,
             config.ocr.health_allowlist,
@@ -66,32 +66,9 @@ class ImageEngine:
             window_name="Target_Distance",
             allowlist=config.ocr.distance_allowlist,
             pattern=config.ocr.distance_pattern,
+            show_window=False,
         )
         self.templates = self._load_templates()
-
-    def _create_yolo_model(self, model_path: str, prefer_mps: bool = True):
-        try:
-            model = YOLO(str(self._resolve_path(model_path)))
-
-            if prefer_mps and torch.backends.mps.is_available():
-                model.to("mps")
-            else:
-                print("未检测到 MPS 或已禁用，将使用 CPU 运行。")
-
-            return model
-        except Exception as exc:
-            print(f"模型加载失败: {exc}")
-            raise
-
-    def _create_ocr_reader(self, ocr_config: OcrConfig):
-        """初始化 OCR 引擎。若配置 GPU 加速但初始化失败，则自动回退至 CPU 模式。"""
-        try:
-            return easyocr.Reader(list(ocr_config.languages), gpu=ocr_config.use_gpu)
-        except Exception as exc:
-            if ocr_config.use_gpu:
-                print(f">>> OCR GPU 初始化失败，降级到 CPU: {exc}")
-                return easyocr.Reader(list(ocr_config.languages), gpu=False)
-            raise
 
     def _build_ocr_parse_spec(
         self,
@@ -180,7 +157,7 @@ class ImageEngine:
 
     def _extract_text_via_ocr(self, pic, parse_spec: OcrParseSpec):
         """统一 OCR 处理流程。"""
-        processed_pic = self._preprocess_image_for_ocr(pic)
+        processed_pic = self._preprocess_image_for_ocr(pic, binarize=False)
         if processed_pic is None:
             return None, f">>> {parse_spec.window_name} OCR 处理失败，预处理图片失败"
 
@@ -206,13 +183,20 @@ class ImageEngine:
         except Exception as exc:
             return None, f">>> {parse_spec.window_name} OCR 处理出错: {exc}"
 
-    def _preprocess_image_for_ocr(self, pic, fx=2, fy=2):
+    def _preprocess_image_for_ocr(self, pic, fx=2, fy=2, binarize=False):
         if pic is None or pic.size == 0:
             return None
 
         gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
         zoomed = cv2.resize(gray, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
-        return cv2.bitwise_not(zoomed)
+        processed = cv2.bitwise_not(zoomed)
+
+        if binarize:
+            _, processed = cv2.threshold(
+                processed, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+            )
+
+        return processed
 
     def _perfect_match_and_locate(
         self,
@@ -277,21 +261,6 @@ class ImageEngine:
             return x_min, y_min, x_min + tw, y_min + th
         return None
 
-    def _get_tag_box(self, yolo_results, tag):
-        if not yolo_results or not yolo_results[0].boxes:
-            return None
-
-        names = yolo_results[0].names
-        targets = [
-            box for box in yolo_results[0].boxes if names[int(box.cls[0])] == tag
-        ]
-        if not targets:
-            return None
-
-        target_box = max(targets, key=lambda box: box.conf[0])
-        x1, y1, x2, y2 = map(int, target_box.xyxy[0].tolist())
-        return x1, y1, x2, y2
-
     @staticmethod
     def _translate_box(box: Box, dx: int, dy: int) -> Box:
         x1, y1, x2, y2 = box
@@ -309,13 +278,12 @@ class ImageEngine:
         if self.yolo_model is None:
             return None
 
-        yolo_results = self.yolo_model.predict(
+        return self.yolo_model.detect(
             frame,
             imgsz=config.vision.yolo_imgsz,
-            verbose=False,
             conf=config.vision.yolo_conf,
+            tag="Top_Target_Tag",
         )
-        return self._get_tag_box(yolo_results, "Top_Target_Tag")
 
     def _detect_target_box(self, frame):
         if self.target_detection_mode == "yolo":
@@ -354,10 +322,10 @@ class ImageEngine:
 
         if include_vitals:
             health, health_error = self.get_health_value(frame)
-            mental, mental_error = self.get_mental_value(frame)
             if health_error is not None:
                 errors.append(health_error)
                 health = None
+            mental, mental_error = self.get_mental_value(frame)
             if mental_error is not None:
                 errors.append(mental_error)
                 mental = None

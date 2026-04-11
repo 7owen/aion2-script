@@ -1,7 +1,9 @@
+import queue
 import random
 import select
 import sys
 import termios
+import threading
 import time
 import tty
 
@@ -14,13 +16,34 @@ from strategy import BaseStrategy, StrategyAction
 from video_capture import VideoCapture
 
 
-def read_stdin():
-    if select.select([sys.stdin], [], [], 0)[0]:
-        char = sys.stdin.read(1)
-        while select.select([sys.stdin], [], [], 0)[0]:
-            char = sys.stdin.read(1)
-        return char
-    return None
+def keyboard_listener(input_queue: queue.Queue):
+    old_settings = None
+    try:
+        old_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+    except Exception:
+        # 捕获 SSH 等无 TTY 环境下的 ioctl 异常，允许降级
+        pass
+
+    try:
+        while True:
+            # 使用 select 监听，防止死锁
+            ready, _, _ = select.select([sys.stdin], [], [], 0.1)
+            if ready:
+                char = sys.stdin.read(1)
+                if not char:
+                    break
+                input_queue.put(char)
+                if char == "q":
+                    break
+    except Exception:
+        pass
+    finally:
+        if old_settings is not None:
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            except Exception:
+                pass
 
 
 class BotRunner:
@@ -41,51 +64,52 @@ class BotRunner:
         self.is_paused = False
 
     def run(self) -> None:
-        old_settings = termios.tcgetattr(sys.stdin)
         period = 1.0 / config.runtime.max_ops_per_second
+        input_queue = queue.Queue()
 
-        try:
-            # print("初始化鼠标校正中。。。。")
-            # self.player_action.reset_mouse()
-            # time.sleep(0.5)
-            # self.player_action.move_mouse_to_center()
-            tty.setcbreak(sys.stdin.fileno())
+        listener_thread = threading.Thread(
+            target=keyboard_listener,
+            args=(input_queue,),
+            daemon=True,
+        )
+        listener_thread.start()
 
-            while True:
-                loop_start = time.monotonic()
-                char = read_stdin()
-                if char == " ":
-                    self.is_paused = not self.is_paused
-                elif char == "q":
-                    break
+        while True:
+            loop_start = time.monotonic()
 
+            char = None
+            while not input_queue.empty():
+                char = input_queue.get_nowait()
+
+            if char == " ":
+                self.is_paused = not self.is_paused
                 if self.is_paused:
                     console.set_note_msg("已暂停脚本")
                 else:
                     console.set_note_msg("")
-                    if self.update_perception(loop_start):
-                        for action in self.strategy.next_actions():
-                            self._dispatch(action)
+            elif char == "q":
+                break
 
-                self._render_dashboard()
+            if not self.is_paused:
+                if self.update_perception(loop_start):
+                    for action in self.strategy.next_actions():
+                        self._dispatch(action)
 
-                elapsed = time.monotonic() - loop_start
-                wait_time = random.uniform(period - 0.2, period + 0.2) - elapsed
-                if wait_time > 0:
-                    time.sleep(wait_time)
+            self._render_dashboard()
 
-        finally:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            elapsed = time.monotonic() - loop_start
+            wait_time = random.uniform(period - 0.2, period + 0.2) - elapsed
+            if wait_time > 0:
+                time.sleep(wait_time)
 
     def update_perception(self, now: float) -> bool:
         img = self.video_capture.read_frame()
         if img is None:
             self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
             return False
-
         snapshot = self.image_engine.analyze(
             img,
-            include_vitals=int(now) % 3 == 1,
+            include_vitals=int(now) % config.runtime.max_ops_per_second == 0,
         )
         self.state.apply_perception(snapshot)
         console.set_err_msg(" | ".join(snapshot.errors))

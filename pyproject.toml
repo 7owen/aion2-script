@@ -5,22 +5,27 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "clip",
-    "coremltools>=9.0",
     "easyocr>=1.7.2",
+    "pytesseract>=0.3.10",
     "kmbox-net-rust",
-    "mss>=10.1.0",
-    "onnx>=1.20.1",
-    "onnxruntime>=1.24.1",
-    "onnxslim>=0.1.85",
-    "openai-clip>=1.0.1",
-    "opencv-python>=4.13.0.92",
-    "pynput>=1.8.1",
-    "rich>=14.3.3",
-    "setuptools>=82.0.0",
-    "transitions>=0.9.3",
+    # "mss>=10.1.0",
+    "opencv-python-headless>=4.13.0.92",
+    # "setuptools>=82.0.0",
+    "torch",
+    "torchvision",
     "ultralytics>=8.4.12",
 ]
 
-[tool.uv.sources]
-clip = { git = "https://github.com/ultralytics/CLIP.git" }
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
+# torchvision = { index = "pytorch-cpu" }
+
+# 镜像仓库
+[[tool.uv.index]]
+url="https://pypi.tuna.tsinghua.edu.cn/simple"
+default=true
