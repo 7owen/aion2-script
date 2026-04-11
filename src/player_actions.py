@@ -74,7 +74,8 @@ class PlayerActions:
         self.kmDriver.key_up(kmbox_net.KEY_R)
 
     def press_escape(self) -> None:
-        self.kmDriver.key_press(kmbox_net.KEY_ESCAPE)
+        self.kmDriver.key_press(kmbox_net.KEY_TAB)
+        time.sleep(0.3)
 
     def open_inventory(self) -> None:
         self.kmDriver.key_press(kmbox_net.KEY_I)

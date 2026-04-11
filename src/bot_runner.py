@@ -7,6 +7,8 @@ import threading
 import time
 import tty
 
+import cv2
+
 from bot_config import config
 from console import console as console
 from game_context import BotState
@@ -107,6 +109,11 @@ class BotRunner:
         if img is None:
             self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
             return False
+
+        # if not sys.platform.startswith("linux"):
+        #     cv2.imshow("Capture", img)
+        #     cv2.waitKey(1)
+
         snapshot = self.image_engine.analyze(
             img,
             include_vitals=int(now) % config.runtime.max_ops_per_second == 0,
@@ -139,6 +146,10 @@ class BotRunner:
         elif action == StrategyAction.RESURRECT_CHARACTER:
             self.player_action.resurrect_character(self.state.resurrection_btn)
             self.state.resurrection_btn = None
+        elif action == StrategyAction.CANCEL_CUR_TARGET:
+            self.player_action.press_escape()
+            self.state.target.clear_target()
+            self.strategy.set_idle_state()
 
     def _render_dashboard(self) -> None:
         console.render_dashboard(

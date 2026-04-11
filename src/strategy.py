@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -22,6 +23,7 @@ class StrategyAction(Enum):
     ROTATE_VIEW = "rotate_view"
     EXTRACT_EQUIPMENT = "extract_equipment"
     RESURRECT_CHARACTER = "resurrect_character"
+    CANCEL_CUR_TARGET = "cancel_cur_target"
     NONE = "none"
 
 
@@ -47,6 +49,7 @@ class CombatStrategy(BaseStrategy):
         super().__init__(state)
         self.state_name = CombatState.IDLE
         self.cur_try_combat_count = 0
+        self.fight_start_time = 0.0
 
     def next_actions(self) -> tuple[StrategyAction, ...]:
         if self.state_name == CombatState.IDLE:
@@ -56,6 +59,7 @@ class CombatStrategy(BaseStrategy):
             if self.state.has_target:
                 self.cur_try_combat_count = 0
                 self.state_name = CombatState.FIGHT
+                self.fight_start_time = time.monotonic()
                 return (StrategyAction.START_FIGHT,)
 
             if self.state.need_extract():
@@ -70,6 +74,12 @@ class CombatStrategy(BaseStrategy):
 
         if self.state_name == CombatState.FIGHT:
             if self.state.has_target:
+                if time.monotonic() - self.fight_start_time > 20.0:
+                    self.set_idle_state()
+                    return (
+                        StrategyAction.ROTATE_VIEW,
+                        StrategyAction.CANCEL_CUR_TARGET,
+                    )
                 return (StrategyAction.LOOP_FIGHT,)
             self.set_idle_state()
             return (
@@ -82,6 +92,7 @@ class CombatStrategy(BaseStrategy):
     def set_idle_state(self) -> None:
         self.state_name = CombatState.IDLE
         self.cur_try_combat_count = 0
+        self.fight_start_time = 0.0
 
     def get_status_info(self) -> str:
         return f"{self.state_name} 状态"
