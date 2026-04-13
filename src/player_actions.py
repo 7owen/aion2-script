@@ -77,7 +77,7 @@ class PlayerActions:
         self.kmDriver.key_press(kmbox_net.KEY_TAB)
         time.sleep(0.3)
 
-    def open_inventory(self) -> None:
+    def click_inventory(self) -> None:
         self.kmDriver.key_press(kmbox_net.KEY_I)
 
     def reset_mouse(self) -> None:
@@ -100,7 +100,7 @@ class PlayerActions:
         self.reset_mouse()
         # self.press_escape()
         # time.sleep(random.random())
-        self.open_inventory()
+        self.click_inventory()
         time.sleep(random.random())
         self.move_mouse_to(
             random.randint(1735, 1785),
@@ -120,10 +120,13 @@ class PlayerActions:
         self.press_confirm()
         time.sleep(random.random())
         self.press_confirm()
-        time.sleep(1)
+        # time.sleep(random.random())
+        time.sleep(2)
         self.press_confirm()
-        time.sleep(random.random())
-        self.press_escape()
+        # time.sleep(random.random())
+        time.sleep(1)
+        self.click_inventory()
+        # self.press_escape()
         time.sleep(random.random())
         self.move_mouse_to_center()
 

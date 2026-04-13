@@ -107,7 +107,7 @@ class RoleBowStar(Role):
             if skill_use(target):
                 return
 
-        self.skills[SKILL_TAOSUOJIAN].use(target)
+        # self.skills[SKILL_TAOSUOJIAN].use(target)
 
     # def buff(self) -> None:
     #     pass

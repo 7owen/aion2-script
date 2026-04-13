@@ -101,4 +101,4 @@ class RoleSwordStar(Role):
             if skill_use(target):
                 return
 
-        self.skills[SKILL_TIAOYUEGONGJI].use(target)
+        # self.skills[SKILL_TIAOYUEGONGJI].use(target)
