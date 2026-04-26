@@ -15,7 +15,7 @@ class StateConsole:
 
     @staticmethod
     def _clear_screen() -> None:
-        print("\033[2J\033[H", end="")
+        print("\033[2J\033[H", end="", flush=True)
 
     def show_pause(self):
         self._clear_screen()
@@ -54,9 +54,11 @@ class StateConsole:
             f"\n退出: Q键 暂停: 空格键"
         )
 
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self._clear_screen()
-        print(f"=== {state_str} ===")
-        print(content)
+        print(f"=== {state_str} [{timestamp}] ===", flush=True)
+        print(content, flush=True)
 
 
 console = StateConsole()

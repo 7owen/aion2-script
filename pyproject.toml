@@ -14,6 +14,9 @@ dependencies = [
     "torch",
     "torchvision",
     "ultralytics>=8.4.12",
+    "rapidocr-onnxruntime>=1.4.4",
+    "onnxruntime-directml>=1.24.4; sys_platform == 'win32'",
+    "onnxruntime>=1.24.4; sys_platform != 'win32'",
 ]
 
 [[tool.uv.index]]
@@ -24,6 +27,12 @@ explicit = true
 # [tool.uv.sources]
 # torch = { index = "pytorch-cpu" }
 # torchvision = { index = "pytorch-cpu" }
+
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
 
 # 镜像仓库
 [[tool.uv.index]]

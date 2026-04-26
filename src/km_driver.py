@@ -42,8 +42,11 @@ class KmboxDriver:
                 # if keyboard.buttons != 0 or len(keyboard.data) > 0:
                 #     print(f"Keyboard: {keyboard.data}")
 
-            self.monitor = kmbox_net.KmBoxNetMonitor(self.config.monitor_port, on_event)
-            self.client.monitor(self.config.monitor_port)
+            try:
+                self.monitor = kmbox_net.KmBoxNetMonitor(self.config.monitor_port, on_event)
+                self.client.monitor(self.config.monitor_port)
+            except Exception as e:
+                print(f"Warning: Failed to start Kmbox monitor: {e}")
 
         except Exception:
             self.close()

@@ -31,6 +31,8 @@ class LoadedTemplate:
     image: object
     mask: object | None
     tolerance: float
+    h: int
+    w: int
 
 
 class ImageEngine:
@@ -50,6 +52,11 @@ class ImageEngine:
                 str(self._resolve_path(config.video.model_path)),
                 prefer_mps=config.video.prefer_mps,
             )
+
+        # 禁用 OpenCV OpenCL 加速，并限制线程数为 1。
+        # 在运行 CPU 密集型游戏时，限制线程数可以减少核心争抢和上下文切换，从而显著提升响应速度。
+        cv2.ocl.setUseOpenCL(False)
+        cv2.setNumThreads(1)
 
         self.ocr_reader = OcrReaderWrapper(config.ocr)
         self.health_spec = self._build_ocr_region_spec(
@@ -119,11 +126,15 @@ class ImageEngine:
         elif len(img_template.shape) == 3:
             img_template = cv2.cvtColor(img_template, cv2.COLOR_BGR2GRAY)
 
+        # 回归 CPU 存储模板
+        h, w = img_template.shape[:2]
         return LoadedTemplate(
             path=str(template_path),
             image=img_template,
             mask=img_mask,
             tolerance=template_config.tolerance,
+            h=h,
+            w=w,
         )
 
     def _load_templates(self) -> dict[str, LoadedTemplate]:
@@ -157,7 +168,9 @@ class ImageEngine:
 
     def _extract_text_via_ocr(self, pic, parse_spec: OcrParseSpec):
         """统一 OCR 处理流程。"""
+        t_pre_start = time.perf_counter()
         processed_pic = self._preprocess_image_for_ocr(pic, binarize=False)
+        t_pre_end = time.perf_counter()
         if processed_pic is None:
             return None, f">>> {parse_spec.window_name} OCR 处理失败，预处理图片失败"
 
@@ -166,11 +179,16 @@ class ImageEngine:
             cv2.waitKey(1)
 
         try:
+            t_ocr_start = time.perf_counter()
             ocr_result = self.ocr_reader.readtext(
                 processed_pic,
                 detail=0,
                 allowlist=parse_spec.allowlist,
             )
+            t_ocr_end = time.perf_counter()
+            # print(
+            #     f"[PERF] {parse_spec.window_name}: Pre={(t_pre_end - t_pre_start) * 1000:.1f}ms, OCR={(t_ocr_end - t_ocr_start) * 1000:.1f}ms"
+            # )
             text_combined = "".join(str(t) for t in ocr_result).replace(",", "")
 
             match = parse_spec.pattern.search(text_combined)
@@ -187,6 +205,7 @@ class ImageEngine:
         if pic is None or pic.size == 0:
             return None
 
+        # 回归 CPU 处理，避免小图搬运开销
         gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
         zoomed = cv2.resize(gray, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
         processed = cv2.bitwise_not(zoomed)
@@ -207,15 +226,21 @@ class ImageEngine:
         if target_frame is None or target_frame.size == 0:
             return None
 
+        # 回归 CPU 匹配
         if len(target_frame.shape) == 3:
             img_target = cv2.cvtColor(target_frame, cv2.COLOR_BGR2GRAY)
         else:
             img_target = target_frame
 
+        ih, iw = target_frame.shape[:2]
         return self._pixel_perfect_match_and_locate(
             template.image,
             img_target,
             template.tolerance,
+            template.h,
+            template.w,
+            ih,
+            iw,
             template.mask,
             debug,
         )
@@ -224,7 +249,11 @@ class ImageEngine:
         self,
         img_template,
         img_target,
-        tolerance=0.0,
+        tolerance,
+        th,
+        tw,
+        ih,
+        iw,
         img_mask=None,
         debug=False,
     ):
@@ -236,13 +265,12 @@ class ImageEngine:
         返回: (x1, y1, x2, y2) 或 None
         """
 
-        th, tw = img_template.shape[:2]
-        ih, iw = img_target.shape[:2]
         if th > ih or tw > iw:
             if debug:
                 print("匹配失败 - 模板尺寸大于目标图。")
             return None
 
+        t0 = time.perf_counter()
         if img_mask is not None:
             result = cv2.matchTemplate(
                 img_target,
@@ -253,6 +281,10 @@ class ImageEngine:
         else:
             result = cv2.matchTemplate(img_target, img_template, cv2.TM_SQDIFF_NORMED)
         min_val, _, min_loc, _ = cv2.minMaxLoc(result)
+        dt = (time.perf_counter() - t0) * 1000
+        if dt > 1.0:  # 只有大于1ms的才打印，证明在大图或复杂匹配下的开销
+            # print(f"[PERF] matchTemplate took: {dt:.2f}ms")
+            pass
         if debug:
             print(f"像素匹配最小归一化误差: {min_val:.8f}")
 
@@ -304,7 +336,14 @@ class ImageEngine:
             return -1, f">>> {spec.parse_spec.window_name} OCR 提取失败，分母为 0"
         return -1, err_msg
 
-    def analyze(self, frame, include_vitals: bool = True) -> PerceptionSnapshot:
+    def analyze(
+        self,
+        frame,
+        check_vitals: bool = True,
+        check_buffs: bool = True,
+        check_resurrection: bool = True,
+        check_target_distance: bool = True,
+    ) -> PerceptionSnapshot:
         now = time.monotonic()
         errors: list[str] = []
         active_buffs: set[str] = set()
@@ -314,13 +353,13 @@ class ImageEngine:
         health = None
         mental = None
 
-        if self.is_liweijian_valid(frame):
-            active_buffs.add(BUFF_BAOJI)
+        if check_buffs:
+            if self.is_liweijian_valid(frame):
+                active_buffs.add(BUFF_BAOJI)
+            if self.is_jiaohuaizhan_valid(frame):
+                active_buffs.add(BUFF_GEDANG)
 
-        if self.is_jiaohuaizhan_valid(frame):
-            active_buffs.add(BUFF_GEDANG)
-
-        if include_vitals:
+        if check_vitals:
             health, health_error = self.get_health_value(frame)
             if health_error is not None:
                 errors.append(health_error)
@@ -331,15 +370,19 @@ class ImageEngine:
                 mental = None
 
         if target_box:
-            target_distance, target_distance_error = self.get_distance_from_target_box(
-                frame,
-                target_box,
-            )
-            if target_distance_error is not None:
-                errors.append(target_distance_error)
-                target_distance = -1
+            if check_target_distance:
+                target_distance, target_distance_error = (
+                    self.get_distance_from_target_box(
+                        frame,
+                        target_box,
+                    )
+                )
+                if target_distance_error is not None:
+                    errors.append(target_distance_error)
+                    target_distance = -1
         else:
-            resurrection_box = self.get_resurrection_box(frame)
+            if check_resurrection:
+                resurrection_box = self.get_resurrection_box(frame)
 
         return PerceptionSnapshot(
             captured_at=now,
@@ -396,7 +439,21 @@ class ImageEngine:
         return -1, err_msg
 
     def get_resurrection_box(self, frame):
-        return self._perfect_match_and_locate(self.templates["resurrection"], frame)
+        """优化：不进行全屏搜索，只在屏幕中间 1/3 高度区域寻找复活按钮以节省 CPU。"""
+        h, w = frame.shape[:2]
+        # 高度取中间 1/3 (33% 到 66%)，宽度不变
+        y1 = h // 3
+        y2 = 2 * h // 3
+
+        crop = self._crop_image(frame, 0, y1, w, y2)
+        if crop is None:
+            return None
+
+        res = self._perfect_match_and_locate(self.templates["resurrection"], crop)
+        if res:
+            # 匹配结果是相对于裁剪区域的，需要将 y 坐标平移回全屏坐标系
+            return self._translate_box(res, 0, y1)
+        return None
 
     def is_liweijian_valid(self, frame):
         rect = config.vision.liweijian_region

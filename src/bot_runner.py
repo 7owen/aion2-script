@@ -1,11 +1,15 @@
 import queue
 import random
-import select
 import sys
-import termios
 import threading
 import time
-import tty
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import select
+    import termios
+    import tty
 
 import cv2
 
@@ -19,6 +23,20 @@ from video_capture import VideoCapture
 
 
 def keyboard_listener(input_queue: queue.Queue):
+    if sys.platform == "win32":
+        try:
+            while True:
+                if msvcrt.kbhit():
+                    char = msvcrt.getch().decode("utf-8", errors="ignore")
+                    if char:
+                        input_queue.put(char)
+                        if char == "q":
+                            break
+                time.sleep(0.1)
+        except Exception:
+            pass
+        return
+
     old_settings = None
     try:
         old_settings = termios.tcgetattr(sys.stdin)
@@ -65,6 +83,13 @@ class BotRunner:
         self.strategy = strategy
         self.is_paused = False
 
+        self._last_vitals_time = 0.0
+        self._last_resurrection_time = 0.0
+
+        self._cached_health = None
+        self._cached_mental = None
+        self._cached_resurrection = None
+
     def run(self) -> None:
         period = 1.0 / config.runtime.max_ops_per_second
         input_queue = queue.Queue()
@@ -78,6 +103,7 @@ class BotRunner:
 
         while True:
             loop_start = time.monotonic()
+            # print("DEBUG: Start loop iteration", flush=True)
 
             char = None
             while not input_queue.empty():
@@ -93,10 +119,14 @@ class BotRunner:
                 break
 
             if not self.is_paused:
+                # print("DEBUG: Calling update_perception", flush=True)
                 if self.update_perception(loop_start):
+                    # print("DEBUG: Calling strategy.next_actions", flush=True)
                     for action in self.strategy.next_actions():
+                        # print(f"DEBUG: Dispatching action: {action}", flush=True)
                         self._dispatch(action)
 
+            # print("DEBUG: Rendering dashboard", flush=True)
             self._render_dashboard()
 
             elapsed = time.monotonic() - loop_start
@@ -114,10 +144,41 @@ class BotRunner:
         #     cv2.imshow("Capture", img)
         #     cv2.waitKey(1)
 
+        check_vitals = (now - self._last_vitals_time) > 1
+        check_resurrection = (now - self._last_resurrection_time) > 5.0
+
         snapshot = self.image_engine.analyze(
             img,
-            include_vitals=int(now) % config.runtime.max_ops_per_second == 0,
+            check_vitals=check_vitals,
+            check_resurrection=check_resurrection,
         )
+
+        if check_vitals:
+            self._cached_health = snapshot.health
+            self._cached_mental = snapshot.mental
+            self._last_vitals_time = now
+
+        if snapshot.target_box:
+            self._cached_resurrection = None
+        else:
+            if check_resurrection:
+                self._cached_resurrection = snapshot.resurrection_box
+                self._last_resurrection_time = now
+
+        try:
+            from dataclasses import replace
+
+            snapshot = replace(
+                snapshot,
+                health=self._cached_health,
+                mental=self._cached_mental,
+                resurrection_box=self._cached_resurrection,
+            )
+        except TypeError:
+            snapshot.health = self._cached_health
+            snapshot.mental = self._cached_mental
+            snapshot.resurrection_box = self._cached_resurrection
+
         self.state.apply_perception(snapshot)
         console.set_err_msg(" | ".join(snapshot.errors))
         return True

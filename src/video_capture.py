@@ -1,3 +1,4 @@
+import sys
 import warnings
 
 import cv2
@@ -18,7 +19,12 @@ class VideoCapture:
         )
 
     def create_cap(self, camera_index: int, frame_width: int, frame_height: int):
-        cap = cv2.VideoCapture(camera_index)
+        # 在 Windows 上使用 DirectShow 后端可以显著加快 USB 摄像头的初始化速度
+        if sys.platform == "win32":
+            cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(camera_index)
+
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
         if not cap.isOpened():
