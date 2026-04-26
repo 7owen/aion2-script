@@ -6,8 +6,28 @@ from pathlib import Path
 import cv2
 
 from bot_config import OcrRegionConfig, Rect, TemplateMatchConfig, config
-from game_context import Box, PerceptionSnapshot
-from models.skill_data import BUFF_BAOJI, BUFF_GEDANG
+import time
+from dataclasses import dataclass, field
+
+Box = tuple[int, int, int, int]
+
+@dataclass(frozen=True, slots=True)
+class PerceptionSnapshot:
+    captured_at: float = field(default_factory=time.monotonic)
+    health: float | None = None
+    mental: float | None = None
+    target_box: Box | None = None
+    target_distance: int = -1
+    resurrection_box: Box | None = None
+    active_buff_codes: frozenset[str] = field(default_factory=frozenset)
+    errors: tuple[str, ...] = ()
+
+    @property
+    def has_target(self) -> bool:
+        return self.target_box is not None
+
+BUFF_BAOJI = "BUFF_BAOJI"
+BUFF_GEDANG = "BUFF_GEDANG"
 from ocr_reader import OcrReaderWrapper
 
 
@@ -186,9 +206,9 @@ class ImageEngine:
                 allowlist=parse_spec.allowlist,
             )
             t_ocr_end = time.perf_counter()
-            # print(
-            #     f"[PERF] {parse_spec.window_name}: Pre={(t_pre_end - t_pre_start) * 1000:.1f}ms, OCR={(t_ocr_end - t_ocr_start) * 1000:.1f}ms"
-            # )
+            print(
+                f"[PERF] {parse_spec.window_name}: Pre={(t_pre_end - t_pre_start) * 1000:.1f}ms, OCR={(t_ocr_end - t_ocr_start) * 1000:.1f}ms"
+            )
             text_combined = "".join(str(t) for t in ocr_result).replace(",", "")
 
             match = parse_spec.pattern.search(text_combined)
@@ -283,8 +303,8 @@ class ImageEngine:
         min_val, _, min_loc, _ = cv2.minMaxLoc(result)
         dt = (time.perf_counter() - t0) * 1000
         if dt > 1.0:  # 只有大于1ms的才打印，证明在大图或复杂匹配下的开销
-            # print(f"[PERF] matchTemplate took: {dt:.2f}ms")
-            pass
+            print(f"[PERF] matchTemplate took: {dt:.2f}ms")
+            # pass
         if debug:
             print(f"像素匹配最小归一化误差: {min_val:.8f}")
 

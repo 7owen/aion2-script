@@ -4,6 +4,8 @@ import sys
 import threading
 import time
 
+import requests
+
 if sys.platform == "win32":
     import msvcrt
 else:
@@ -11,15 +13,11 @@ else:
     import termios
     import tty
 
-import cv2
-
 from bot_config import config
 from console import console as console
 from game_context import BotState
-from image_engine import ImageEngine
 from player_actions import PlayerActions
 from strategy import BaseStrategy, StrategyAction
-from video_capture import VideoCapture
 
 
 def keyboard_listener(input_queue: queue.Queue):
@@ -71,14 +69,12 @@ class BotRunner:
         self,
         *,
         state: BotState,
-        video_capture: VideoCapture,
-        image_engine: ImageEngine,
+        video_capture=None,
         player_action: PlayerActions,
         strategy: BaseStrategy,
     ) -> None:
         self.state = state
         self.video_capture = video_capture
-        self.image_engine = image_engine
         self.player_action = player_action
         self.strategy = strategy
         self.is_paused = False
@@ -86,9 +82,8 @@ class BotRunner:
         self._last_vitals_time = 0.0
         self._last_resurrection_time = 0.0
 
-        self._cached_health = None
-        self._cached_mental = None
         self._cached_resurrection = None
+        self._session = requests.Session()
 
     def run(self) -> None:
         period = 1.0 / config.runtime.max_ops_per_second
@@ -103,7 +98,6 @@ class BotRunner:
 
         while True:
             loop_start = time.monotonic()
-            # print("DEBUG: Start loop iteration", flush=True)
 
             char = None
             while not input_queue.empty():
@@ -119,14 +113,10 @@ class BotRunner:
                 break
 
             if not self.is_paused:
-                # print("DEBUG: Calling update_perception", flush=True)
                 if self.update_perception(loop_start):
-                    # print("DEBUG: Calling strategy.next_actions", flush=True)
                     for action in self.strategy.next_actions():
-                        # print(f"DEBUG: Dispatching action: {action}", flush=True)
                         self._dispatch(action)
 
-            # print("DEBUG: Rendering dashboard", flush=True)
             self._render_dashboard()
 
             elapsed = time.monotonic() - loop_start
@@ -134,28 +124,52 @@ class BotRunner:
             if wait_time > 0:
                 time.sleep(wait_time)
 
+    def _fetch_perception_data(self, check_vitals: bool, check_resurrection: bool) -> dict:
+        """从视觉服务获取感知数据。"""
+        response = self._session.get(
+            "http://127.0.0.1:8000/api/perception",
+            params={
+                "check_vitals": check_vitals,
+                "check_resurrection": check_resurrection,
+            },
+            timeout=1.0,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def update_perception(self, now: float) -> bool:
-        img = self.video_capture.read_frame()
-        if img is None:
-            self._reset_perception_state(">>> 视频帧读取失败，已回退到待机状态")
-            return False
-
-        # if not sys.platform.startswith("linux"):
-        #     cv2.imshow("Capture", img)
-        #     cv2.waitKey(1)
-
-        check_vitals = (now - self._last_vitals_time) > 1
+        check_vitals = (now - self._last_vitals_time) > 2
         check_resurrection = (now - self._last_resurrection_time) > 5.0
 
-        snapshot = self.image_engine.analyze(
-            img,
-            check_vitals=check_vitals,
-            check_resurrection=check_resurrection,
+        try:
+            data = self._fetch_perception_data(check_vitals, check_resurrection)
+        except Exception as e:
+            self._reset_perception_state(f">>> 视觉服务连接失败: {e}")
+            return False
+
+        from game_context import PerceptionSnapshot
+
+        # 处理 API 返回的数据，转换为 PerceptionSnapshot
+        target_box = (0, 0, 1, 1) if data.get("has_target") else None
+
+        # 默认使用屏幕中心区域作为复活按钮备用点击坐标，如果服务端没返回坐标的话
+        # (通常坐标为1920*1080中心附近)
+        resurrection_box = (
+            (900, 500, 1020, 580) if data.get("resurrection_btn_visible") else None
+        )
+
+        snapshot = PerceptionSnapshot(
+            captured_at=data.get("captured_at", now),
+            health=data.get("health"),
+            mental=data.get("mental"),
+            target_distance=data.get("target_distance", -1),
+            target_box=target_box,
+            resurrection_box=resurrection_box,
+            active_buff_codes=frozenset(data.get("active_buff_codes", [])),
+            errors=tuple(data.get("errors", [])),
         )
 
         if check_vitals:
-            self._cached_health = snapshot.health
-            self._cached_mental = snapshot.mental
             self._last_vitals_time = now
 
         if snapshot.target_box:
@@ -170,13 +184,9 @@ class BotRunner:
 
             snapshot = replace(
                 snapshot,
-                health=self._cached_health,
-                mental=self._cached_mental,
                 resurrection_box=self._cached_resurrection,
             )
         except TypeError:
-            snapshot.health = self._cached_health
-            snapshot.mental = self._cached_mental
             snapshot.resurrection_box = self._cached_resurrection
 
         self.state.apply_perception(snapshot)
