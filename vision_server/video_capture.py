@@ -2,7 +2,6 @@ import sys
 import warnings
 
 import cv2
-
 from bot_config import config
 
 # 屏蔽掉这个特定的 MPS 警告
@@ -33,8 +32,13 @@ class VideoCapture:
             raise Exception("摄像头打开失败")
         return cap
 
-    def read_frame(self):
-        ret, frame = self.cap.read()
+    def grab(self):
+        """只在硬件层标记抓取一帧（不解码），速度极快，用于清空积压缓冲"""
+        return self.cap.grab()
+
+    def retrieve_frame(self):
+        """将刚抓取到的帧解码为图像返回"""
+        ret, frame = self.cap.retrieve()
         if not ret:
             return None
         return frame

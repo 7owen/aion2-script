@@ -13,9 +13,8 @@ from pydantic import BaseModel
 from image_engine import ImageEngine
 from video_capture import VideoCapture
 
-# 共享变量，用于存储最新的视频帧
-_latest_frame = None
-_frame_lock = threading.Lock()
+# 共享状态与锁
+_camera_lock = threading.Lock()
 _engine: Optional[ImageEngine] = None
 _video_capture: Optional[VideoCapture] = None
 _running = True
@@ -33,16 +32,14 @@ class PerceptionResponse(BaseModel):
 
 
 def frame_grabber_loop():
-    """后台独立线程：不断清空视频采集卡缓冲区，确保获取的帧永远是实时的"""
-    global _latest_frame, _running
+    """后台独立线程：仅执行硬件级别的帧抓取(grab)，清空缓冲区且不耗费CPU解码"""
+    global _running
     while _running:
         if _video_capture:
-            frame = _video_capture.read_frame()
-            if frame is not None:
-                with _frame_lock:
-                    _latest_frame = frame
-
-
+            with _camera_lock:
+                _video_capture.grab()
+            # 极小的休眠让出锁，使得 API 请求可以调用 retrieve() 进行按需解码
+            time.sleep(0.005)
         else:
             time.sleep(0.1)
 
@@ -82,13 +79,13 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
     """
     当客户端（Bot）请求时，拿出最新的一帧进行推理分析。
     """
-    global _latest_frame, _engine
+    global _engine, _video_capture
 
-    if _engine is None:
-        raise HTTPException(status_code=503, detail="Image engine is not initialized")
+    if _engine is None or _video_capture is None:
+        raise HTTPException(status_code=503, detail="Services not fully initialized")
 
-    with _frame_lock:
-        frame_to_process = _latest_frame.copy() if _latest_frame is not None else None
+    with _camera_lock:
+        frame_to_process = _video_capture.retrieve_frame()
 
     if frame_to_process is None:
         raise HTTPException(status_code=503, detail="No video frame available")
@@ -114,24 +111,19 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
 
 
 async def generate_frames():
-    global _latest_frame, _running
-    last_rendered_frame_id = id(None)
+    global _running
     
     while _running:
-        with _frame_lock:
-            frame = _latest_frame.copy() if _latest_frame is not None else None
-            current_frame_id = id(_latest_frame)
+        if _video_capture is None:
+            await asyncio.sleep(0.1)
+            continue
+
+        with _camera_lock:
+            frame = _video_capture.retrieve_frame()
 
         if frame is None:
             await asyncio.sleep(0.1)
             continue
-            
-        # 如果画面没有更新，就不重复下发同样的帧，节省编码和带宽消耗
-        if current_frame_id == last_rendered_frame_id:
-            await asyncio.sleep(0.01)
-            continue
-
-        last_rendered_frame_id = current_frame_id
 
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
