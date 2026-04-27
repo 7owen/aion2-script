@@ -109,8 +109,9 @@ class RapidOcrEngine:
     ) -> List[str]:
         # RapidOCR 输入为 numpy array
         # 对于已经裁剪好的小图，禁用文字检测 (use_det=False) 和方向分类 (use_cls=False) 可以极大提高速度
+        result = []
         try:
-            result, elapse = self.ocr(image, use_det=False, use_cls=False)
+            result, _ = self.ocr(image, use_det=False, use_cls=False)
             if result is None or not result:
                 return []
 

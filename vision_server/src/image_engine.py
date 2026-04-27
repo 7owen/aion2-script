@@ -1,15 +1,15 @@
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
 
 from bot_config import OcrRegionConfig, Rect, TemplateMatchConfig, config
-import time
-from dataclasses import dataclass, field
+from ocr_reader import OcrReaderWrapper
 
 Box = tuple[int, int, int, int]
+
 
 @dataclass(frozen=True, slots=True)
 class PerceptionSnapshot:
@@ -26,9 +26,9 @@ class PerceptionSnapshot:
     def has_target(self) -> bool:
         return self.target_box is not None
 
+
 BUFF_BAOJI = "BUFF_BAOJI"
 BUFF_GEDANG = "BUFF_GEDANG"
-from ocr_reader import OcrReaderWrapper
 
 
 @dataclass(frozen=True, slots=True)
