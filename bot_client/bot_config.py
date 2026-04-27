@@ -28,7 +28,7 @@ def _env_enum(name: str, enum_type, default):
 class VisionServerConfig:
     """视觉服务 (Vision Server) 连接配置。"""
 
-    base_url: str = "http://127.0.0.1:8000"
+    base_url: str = "http://10.0.24.116:8000"
 
 
 @dataclass(frozen=True)
@@ -57,8 +57,8 @@ class ModeConfig:
         default_factory=lambda: _env_enum(
             "BOT_ROLE_TYPE",
             RoleType,
-            # RoleType.BOWSTAR,
-            RoleType.SWORDSTAR,
+            RoleType.BOWSTAR,
+            # RoleType.SWORDSTAR,
         )
     )
     strategy_type: StrategyType = field(

@@ -5,9 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "kmbox-net-rust",
-    "numpy>=2.4.4",
-    "requests>=2.32.5",
     "easyocr>=1.7.2",
     "pytesseract>=0.3.10",
     "opencv-python-headless>=4.13.0.92",
@@ -20,17 +17,6 @@ dependencies = [
     "fastapi>=0.110.0",
     "uvicorn>=0.29.0",
     "pydantic>=2.6.0",
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv]
-environments = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 
 [[tool.uv.index]]
