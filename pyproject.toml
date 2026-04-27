@@ -1,9 +1,13 @@
 [project]
-name = "vision-server"
+name = "xproject"
 version = "0.1.0"
-description = "Vision Server for game state perception"
+description = "Add your description here"
+readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "kmbox-net-rust",
+    "numpy>=2.4.4",
+    "requests>=2.32.5",
     "easyocr>=1.7.2",
     "pytesseract>=0.3.10",
     "opencv-python-headless>=4.13.0.92",

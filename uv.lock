@@ -255,6 +255,16 @@ wheels = [
 ]
 
 [[package]]
+name = "kmbox-net-rust"
+version = "1.0.2"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/65/33/9883c9740638fae7adadec4aa6d80d7eb6b1832f6fb403017151b1a6b467/kmbox_net_rust-1.0.2.tar.gz", hash = "sha256:05a158810dfbe27bd9d42e2507662021db3dec0e7de57e0e03e549932566a420", size = 657649, upload-time = "2026-03-17T15:48:40.961Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/0c/cf/37a0b16f87cecae757dc5c281818d0a962fb5aebdcc191fa5b509f0aa871/kmbox_net_rust-1.0.2-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:17c795be82331271274f7fc5f416d336d38b09431de6f10fb139b05542a0825d", size = 327549, upload-time = "2026-03-17T15:48:28.276Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b3/bb/1a4d14c478a1aa258a9816560bc0d30086673d4b841959208a5142b4f527/kmbox_net_rust-1.0.2-cp39-abi3-win_amd64.whl", hash = "sha256:c31ddcee0b36026178c2bfbd38a6ff7cb6be556643c75a1461798e1d0503d1c2", size = 212758, upload-time = "2026-03-17T15:48:38.808Z" },
+]
+
+[[package]]
 name = "lazy-loader"
 version = "0.5"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
@@ -890,18 +900,21 @@ wheels = [
 ]
 
 [[package]]
-name = "vision-server"
+name = "xproject"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "easyocr", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "fastapi", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "kmbox-net-rust", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "numpy", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "onnxruntime", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "onnxruntime-directml", marker = "platform_machine == 'AMD64' and sys_platform == 'win32'" },
     { name = "opencv-python-headless", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "pydantic", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "pytesseract", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "rapidocr-onnxruntime", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
+    { name = "requests", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "torch", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "torchvision", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "ultralytics", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
@@ -912,12 +925,15 @@ dependencies = [
 requires-dist = [
     { name = "easyocr", specifier = ">=1.7.2" },
     { name = "fastapi", specifier = ">=0.110.0" },
+    { name = "kmbox-net-rust" },
+    { name = "numpy", specifier = ">=2.4.4" },
     { name = "onnxruntime", marker = "sys_platform != 'win32'", specifier = ">=1.24.4" },
     { name = "onnxruntime-directml", marker = "sys_platform == 'win32'", specifier = ">=1.24.4" },
     { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
     { name = "pydantic", specifier = ">=2.6.0" },
     { name = "pytesseract", specifier = ">=0.3.10" },
     { name = "rapidocr-onnxruntime", specifier = ">=1.4.4" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "ultralytics", specifier = ">=8.4.12" },

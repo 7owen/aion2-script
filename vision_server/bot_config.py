@@ -1,4 +1,7 @@
+import os
 from dataclasses import dataclass, field
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 @dataclass(frozen=True)
@@ -70,26 +73,26 @@ class VisionConfig:
     # 目标识别和模板匹配资源
     top_target_icon_match: TemplateMatchConfig = field(
         default_factory=lambda: TemplateMatchConfig(
-            path="src/images/top-target-right-icon.png",
+            path=os.path.join(BASE_DIR, "images", "top-target-right-icon.png"),
             tolerance=0.1,
         )
     )
     resurrection_button_match: TemplateMatchConfig = field(
         default_factory=lambda: TemplateMatchConfig(
-            path="src/images/resurrection-btn.png",
+            path=os.path.join(BASE_DIR, "images", "resurrection-btn.png"),
             tolerance=0.1,
         )
     )
     liweijian_icon_match: TemplateMatchConfig = field(
         default_factory=lambda: TemplateMatchConfig(
-            path="src/images/baoji_icon.png",
+            path=os.path.join(BASE_DIR, "images", "baoji_icon.png"),
             tolerance=0.1,
         )
     )
 
     jiaohuaizhan_icon_match: TemplateMatchConfig = field(
         default_factory=lambda: TemplateMatchConfig(
-            path="src/images/jiaohuaizhan_icon.png",
+            path=os.path.join(BASE_DIR, "images", "jiaohuaizhan_icon.png"),
             tolerance=0.1,
         )
     )
@@ -126,7 +129,7 @@ class OcrConfig:
 class VideoConfig:
     """视频流与模型加载配置。"""
 
-    model_path: str = "src/aion2.pt"  # YOLO 模型权重路径
+    model_path: str = os.path.join(BASE_DIR, "aion2.pt")  # YOLO 模型权重路径
     camera_index: int = 0  # 采集源索引（通常是物理摄像头或虚拟视频采集卡）
     frame_width: int = 1920  # 视频采集宽度
     frame_height: int = 1080  # 视频采集高度
