@@ -15,7 +15,7 @@ else:
 
 from bot_config import config
 from console import console as console
-from game_context import BotState
+from game_context import BotState, PerceptionSnapshot
 from player_actions import PlayerActions
 from strategy import BaseStrategy, StrategyAction
 
@@ -124,10 +124,12 @@ class BotRunner:
             if wait_time > 0:
                 time.sleep(wait_time)
 
-    def _fetch_perception_data(self, check_vitals: bool, check_resurrection: bool) -> dict:
-        """从视觉服务获取感知数据。"""
+    def _fetch_perception_data(
+        self, now: float, check_vitals: bool, check_resurrection: bool
+    ) -> PerceptionSnapshot:
+        """从视觉服务获取感知数据并转换为快照。"""
         response = self._session.get(
-            "http://127.0.0.1:8000/api/perception",
+            f"{config.vision_server.base_url}/api/perception",
             params={
                 "check_vitals": check_vitals,
                 "check_resurrection": check_resurrection,
@@ -135,30 +137,17 @@ class BotRunner:
             timeout=1.0,
         )
         response.raise_for_status()
-        return response.json()
-
-    def update_perception(self, now: float) -> bool:
-        check_vitals = (now - self._last_vitals_time) > 2
-        check_resurrection = (now - self._last_resurrection_time) > 5.0
-
-        try:
-            data = self._fetch_perception_data(check_vitals, check_resurrection)
-        except Exception as e:
-            self._reset_perception_state(f">>> 视觉服务连接失败: {e}")
-            return False
-
-        from game_context import PerceptionSnapshot
+        data = response.json()
 
         # 处理 API 返回的数据，转换为 PerceptionSnapshot
         target_box = (0, 0, 1, 1) if data.get("has_target") else None
 
-        # 默认使用屏幕中心区域作为复活按钮备用点击坐标，如果服务端没返回坐标的话
-        # (通常坐标为1920*1080中心附近)
+        # 默认使用屏幕中心区域作为复活按钮备用点击坐标
         resurrection_box = (
             (900, 500, 1020, 580) if data.get("resurrection_btn_visible") else None
         )
 
-        snapshot = PerceptionSnapshot(
+        return PerceptionSnapshot(
             captured_at=data.get("captured_at", now),
             health=data.get("health"),
             mental=data.get("mental"),
@@ -168,6 +157,18 @@ class BotRunner:
             active_buff_codes=frozenset(data.get("active_buff_codes", [])),
             errors=tuple(data.get("errors", [])),
         )
+
+    def update_perception(self, now: float) -> bool:
+        check_vitals = (now - self._last_vitals_time) > 2
+        check_resurrection = (now - self._last_resurrection_time) > 5.0
+
+        try:
+            snapshot = self._fetch_perception_data(
+                now, check_vitals, check_resurrection
+            )
+        except Exception as e:
+            self._reset_perception_state(f">>> 视觉服务连接失败: {e}")
+            return False
 
         if check_vitals:
             self._last_vitals_time = now

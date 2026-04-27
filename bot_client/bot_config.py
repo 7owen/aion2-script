@@ -25,6 +25,13 @@ def _env_enum(name: str, enum_type, default):
 
 
 @dataclass(frozen=True)
+class VisionServerConfig:
+    """视觉服务 (Vision Server) 连接配置。"""
+
+    base_url: str = "http://127.0.0.1:8000"
+
+
+@dataclass(frozen=True)
 class RuntimeConfig:
     """机器人运行时的控制参数。"""
 
@@ -103,6 +110,7 @@ class BotConfig:
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     mode: ModeConfig = field(default_factory=ModeConfig)
     role: RoleConfig = field(default_factory=RoleConfig)
+    vision_server: VisionServerConfig = field(default_factory=VisionServerConfig)
     kmbox: KmboxConfig = field(default_factory=KmboxConfig.from_env)
 
 
