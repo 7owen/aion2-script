@@ -26,6 +26,7 @@ class VideoCapture:
 
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
+        cap.set(cv2.CAP_PROP_FPS, 30)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         if not cap.isOpened():
             print("错误: 无法打开摄像头。请检查连接或权限。")

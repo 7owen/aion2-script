@@ -8,9 +8,8 @@ import cv2
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-
 from image_engine import ImageEngine
+from pydantic import BaseModel
 from video_capture import VideoCapture
 
 # 共享状态与锁
@@ -38,8 +37,8 @@ def frame_grabber_loop():
         if _video_capture:
             with _camera_lock:
                 _video_capture.grab()
-            # 极小的休眠让出锁，使得 API 请求可以调用 retrieve() 进行按需解码
-            time.sleep(0.005)
+            # 增加休眠时间以匹配 30FPS 采集，显著降低 CPU 占用
+            time.sleep(0.03)
         else:
             time.sleep(0.1)
 
@@ -112,7 +111,7 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
 
 async def generate_frames():
     global _running
-    
+
     while _running:
         if _video_capture is None:
             await asyncio.sleep(0.1)
@@ -125,13 +124,14 @@ async def generate_frames():
             await asyncio.sleep(0.1)
             continue
 
-        ret, buffer = cv2.imencode('.jpg', frame)
+        ret, buffer = cv2.imencode(".jpg", frame)
         if not ret:
             continue
 
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-        
+        yield (
+            b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
+        )
+
         # 限制最高下发帧率（约 30 FPS）
         await asyncio.sleep(0.03)
 
@@ -142,8 +142,7 @@ def video_stream():
     提供实时的 MJPEG 视频流，可以在浏览器中直接查看。
     """
     return StreamingResponse(
-        generate_frames(),
-        media_type="multipart/x-mixed-replace; boundary=frame"
+        generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame"
     )
 
 
