@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
-
 from bot_config import OcrRegionConfig, Rect, TemplateMatchConfig, config
 from ocr_reader import OcrReaderWrapper
 
@@ -27,8 +26,8 @@ class PerceptionSnapshot:
         return self.target_box is not None
 
 
-BUFF_BAOJI = "BUFF_BAOJI"
-BUFF_GEDANG = "BUFF_GEDANG"
+BUFF_BAOJI = "baoji"
+BUFF_GEDANG = "gedang"
 
 
 @dataclass(frozen=True, slots=True)
@@ -488,6 +487,7 @@ class ImageEngine:
         rect = config.vision.liweijian_region
         skill_status_frame = self._crop_image(frame, rect.x1, rect.y1, rect.x2, rect.y2)
         ret = self._perfect_match_and_locate(
-            self.templates["jiaohuaizhan"], skill_status_frame
+            self.templates["jiaohuaizhan"],
+            skill_status_frame,
         )
         return ret is not None

@@ -97,7 +97,7 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
     )
 
     # 将感知结果序列化为 API 响应
-    return PerceptionResponse(
+    resp = PerceptionResponse(
         captured_at=snapshot.captured_at,
         health=snapshot.health,
         mental=snapshot.mental,
@@ -107,6 +107,8 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
         active_buff_codes=list(snapshot.active_buff_codes),
         errors=list(snapshot.errors),
     )
+    # print(f">>> API Response: {resp.model_dump_json()}")
+    return resp
 
 
 async def generate_frames():
