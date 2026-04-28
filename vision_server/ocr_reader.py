@@ -2,6 +2,8 @@ import os
 import sys
 from typing import List, Optional
 
+from rapidocr import EngineType, LangDet, LangRec, ModelType, OCRVersion, RapidOCR
+
 from bot_config import OcrConfig
 
 
@@ -32,7 +34,7 @@ class EasyOcrEngine:
 
 
 class RapidOcrEngine:
-    """现代 OCR 引擎，基于 ONNX Runtime。
+    """现代 OCR 引擎，基于 RapidOCR 3.0+ (ONNX Runtime)。
     针对 N4100 弱性能 CPU 进行优化：开启多线程并行处理。
     """
 
@@ -40,58 +42,55 @@ class RapidOcrEngine:
         # N4100 为 4 核处理器，在独占模式下开启多线程以提升识别速度
 
         try:
-            from rapidocr_onnxruntime import RapidOCR
+            from rapidocr import RapidOCR
 
-            # 强制使用 CPU 模式
-            providers = ["CPUExecutionProvider"]
-
-            # 设置 onnxruntime 提供者
-            # intra_op_num_threads=0 让 ORT 自动选择最优线程数（通常对应物理核心数）
+            # RapidOCR 3.0+ 默认使用 ONNX Runtime
+            # print_verbose=False 关闭详细日志输出
 
             self.ocr = RapidOCR(
-                print_verbose=False,
-                text_score=0.5,
-                providers=providers,
-                intra_op_num_threads=0,
+                params={
+                    "Global.use_det": False,
+                    "Global.use_cls": False,
+                    "Global.text_score": 0.5,
+                    # "Rec.engine_type": EngineType.ONNXRUNTIME,
+                    # "Rec.lang_type": LangDet.EN,
+                    # "Rec.model_type": ModelType.MOBILE,
+                    # "Rec.ocr_version": OCRVersion.PPOCRV5,
+                }
             )
 
-            print("RapidOCR 初始化成功 (N4100 多核模式): 默认中英文版")
+            print("RapidOCR 3.0+ 初始化成功 (N4100 多核模式): 默认中英文版")
         except ImportError as e:
-            print(f">>> 错误: {e}。请执行 `pip install rapidocr_onnxruntime`")
+            print(f">>> 错误: {e}。请执行 `pip install rapidocr>=3.0.0`")
             raise e
 
     def readtext(
         self, image, detail: int = 0, allowlist: Optional[str] = None
     ) -> List[str]:
-        # RapidOCR 输入为 numpy array
-        # 对于已经裁剪好的小图，禁用文字检测 (use_det=False) 和方向分类 (use_cls=False) 可以极大提高速度
-        result = []
+        # RapidOCR 3.0+ 输入为 numpy array 或 PIL Image
+        # 对于已经裁剪好的小图，禁用文字检测 (det=False) 和方向分类 (cls=False) 可以极大提高速度
+        result = None
         try:
-            result, _ = self.ocr(image, use_det=False, use_cls=False)
-            if result is None or not result:
+            result = self.ocr(image, use_det=False, use_cls=False, use_rec=True)
+            if result is None:
                 return []
 
-            # 当 use_det=False 时，RapidOCR 返回 result 通常为 [['文本内容', 置信度]]
-            # 需要稳健地解析这种嵌套结构以避免解包错误
-            text = ""
-            if isinstance(result, list) and len(result) > 0:
-                first_item = result[0]
-                if isinstance(first_item, (list, tuple)) and len(first_item) > 0:
-                    text = str(first_item[0])
-                else:
-                    text = str(first_item)
-
-            if not text:
+            # RapidOCR 3.0+ 返回 TextRecOutput 对象
+            # result.txts 是字符串元组，直接拼接即可
+            if not hasattr(result, "txts") or not result.txts:
                 return []
 
+            # 直接拼接所有识别到的文本
+            text = "".join(result.txts)
+            print(text)
             if allowlist:
                 text = "".join([c for c in text if c in allowlist])
 
             if text:
                 return [text]
         except Exception as e:
-            print(f">>> RapidOCR 识别与解析异常: {e}")
-            print(f">>> 原始返回结果: {result if 'result' in locals() else 'None'}")
+            print(f">>> RapidOCR 3.0+ 识别与解析异常: {e}")
+            print(f">>> 原始返回结果: {result if result is not None else 'None'}")
         return []
 
 

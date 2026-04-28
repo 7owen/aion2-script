@@ -383,10 +383,10 @@ class ImageEngine:
             if health_error is not None:
                 errors.append(health_error)
                 health = None
-            mental, mental_error = self.get_mental_value(frame)
-            if mental_error is not None:
-                errors.append(mental_error)
-                mental = None
+            # mental, mental_error = self.get_mental_value(frame)
+            # if mental_error is not None:
+                # errors.append(mental_error)
+                # mental = None
 
         if target_box:
             if check_target_distance:

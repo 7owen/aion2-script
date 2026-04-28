@@ -11,12 +11,11 @@ dependencies = [
     "torch",
     "torchvision",
     "ultralytics>=8.4.12",
-    "rapidocr-onnxruntime>=1.4.4",
-    "onnxruntime-directml>=1.24.4; sys_platform == 'win32'",
-    "onnxruntime>=1.24.4; sys_platform != 'win32'",
     "fastapi>=0.110.0",
     "uvicorn>=0.29.0",
     "pydantic>=2.6.0",
+    "rapidocr>=3.8.1",
+    "onnxruntime>=1.25.1",
 ]
 
 [[tool.uv.index]]
