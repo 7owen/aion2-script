@@ -31,75 +31,31 @@ class EasyOcrEngine:
         return self.reader.readtext(image, detail=detail, allowlist=allowlist)
 
 
-class TesseractOcrEngine:
-    """适用于弱性能 CPU (如 Intel N4100) 的 Linux 服务器。
-    纯 CPU 计算，不需要 AVX 指令集。需要在系统级安装 tesseract。"""
-
-    def __init__(self, ocr_config: OcrConfig):
-        import os
-
-        # 限制 Tesseract 内部的 OpenMP 线程数，防止弱 CPU 上产生严重抢占和上下文切换导致卡死
-        os.environ["OMP_THREAD_LIMIT"] = "1"
-
-        lang_map = {"en": "eng", "ch_sim": "chi_sim"}
-        self.lang = (
-            "+".join([lang_map.get(l, l) for l in ocr_config.languages]) or "eng"
-        )
-
-    def readtext(
-        self, image, detail: int = 0, allowlist: Optional[str] = None
-    ) -> List[str]:
-        import pytesseract
-
-        custom_config = "--psm 7"
-        if allowlist:
-            custom_config += f" -c tessedit_char_whitelist={allowlist}"
-
-        try:
-            text = pytesseract.image_to_string(
-                image, lang=self.lang, config=custom_config
-            )
-            text = text.strip()
-            if text:
-                return [text]
-            return []
-        except pytesseract.TesseractNotFoundError:
-            print(
-                ">>> 错误: 找不到 Tesseract 可执行文件。请执行 `sudo apt-get install tesseract-ocr tesseract-ocr-eng` 安装。"
-            )
-            return []
-        except Exception as e:
-            print(f">>> Tesseract 识别异常: {e}")
-            return []
-
-
 class RapidOcrEngine:
     """现代 OCR 引擎，基于 ONNX Runtime。
-    针对小区域识别，强制使用 CPU 模式以避免 GPU 调度延迟和数据搬运开销。
+    针对 N4100 弱性能 CPU 进行优化：开启多线程并行处理。
     """
 
     def __init__(self, ocr_config: OcrConfig):
-        # 强制限制多线程并发。在运行 3D 游戏时，过多的并行线程会导致严重的上下文切换开销（Thrashing），
-        # 这是导致之前出现 10s+ 延迟的核心原因。强制单线程反而能获得最稳定的响应。
-        os.environ["OMP_NUM_THREADS"] = "1"
-        os.environ["MKL_NUM_THREADS"] = "1"
-        os.environ["ONNXRUNTIME_NUM_THREADS"] = "1"
+        # N4100 为 4 核处理器，在独占模式下开启多线程以提升识别速度
 
         try:
             from rapidocr_onnxruntime import RapidOCR
 
             # 强制使用 CPU 模式
-            # providers = ["CPUExecutionProvider"]
-            providers = ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+            providers = ["CPUExecutionProvider"]
 
             # 设置 onnxruntime 提供者
+            # intra_op_num_threads=0 让 ORT 自动选择最优线程数（通常对应物理核心数）
+
             self.ocr = RapidOCR(
                 print_verbose=False,
                 text_score=0.5,
                 providers=providers,
-                intra_op_num_threads=1,
+                intra_op_num_threads=0,
             )
-            print(f"RapidOCR 初始化成功，使用的提供者: {providers}")
+
+            print("RapidOCR 初始化成功 (N4100 多核模式): 默认中英文版")
         except ImportError as e:
             print(f">>> 错误: {e}。请执行 `pip install rapidocr_onnxruntime`")
             raise e
@@ -141,23 +97,9 @@ class RapidOcrEngine:
 
 class OcrReaderWrapper:
     def __init__(self, ocr_config: OcrConfig):
-        """
-        初始化 OCR 引擎封装。
-        根据操作系统自动选择合适的底层 OCR 库。
-        macOS (darwin) 优先使用 EasyOCR (支持 MPS)。
-        Linux 优先使用 Tesseract (轻量级，避免弱 CPU 崩溃)。
-        """
-        # Windows 和 macOS 现在统一使用 RapidOCR CPU 模式以获得最佳响应速度
-        if sys.platform in ("win32", "darwin"):
-            self.engine = RapidOcrEngine(ocr_config)
-        else:
-            self.engine = TesseractOcrEngine(ocr_config)
+        self.engine = RapidOcrEngine(ocr_config)
 
     def readtext(
         self, image, detail: int = 0, allowlist: Optional[str] = None
     ) -> List[str]:
-        """
-        提取图像中的文本。
-        返回纯字符串列表，完全屏蔽底层依赖。
-        """
         return self.engine.readtext(image, detail=detail, allowlist=allowlist)
