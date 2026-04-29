@@ -11,8 +11,8 @@ Box = tuple[int, int, int, int]
 @dataclass(frozen=True, slots=True)
 class PerceptionSnapshot:
     captured_at: float = field(default_factory=time.monotonic)
-    health: float | None = None
-    mental: float | None = None
+    health: float = -1.0
+    mental: float = -1.0
     target_box: Box | None = None
     target_distance: int = -1
     resurrection_box: Box | None = None
@@ -42,10 +42,10 @@ class BotState:
     def apply_perception(self, snapshot: PerceptionSnapshot) -> None:
         self.latest_perception = snapshot
 
-        if snapshot.health is not None:
+        if snapshot.health > 0:
             self.role.health = snapshot.health
 
-        if snapshot.mental is not None:
+        if snapshot.mental > 0:
             self.role.mental = snapshot.mental
 
         if snapshot.has_target:

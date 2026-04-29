@@ -82,7 +82,6 @@ class BotRunner:
         self._last_vitals_time = 0.0
         self._last_resurrection_time = 0.0
 
-        self._cached_resurrection = None
         self._session = requests.Session()
 
     def run(self) -> None:
@@ -147,20 +146,34 @@ class BotRunner:
             (900, 500, 1020, 580) if data.get("resurrection_btn_visible") else None
         )
 
+        h = data.get("health")
+        m = data.get("mental")
+        d = data.get("target_distance")
+        c = data.get("captured_at")
+        buffs = data.get("active_buff_codes")
+        errs = data.get("errors")
+
+        # 将服务器返回的 time.time() 转换为本地 time.monotonic()
+        captured_at = now
+        if c is not None:
+            # 计算本地单调时钟与系统时钟的偏移量
+            offset = time.monotonic() - time.time()
+            captured_at = float(c) + offset
+
         return PerceptionSnapshot(
-            captured_at=data.get("captured_at", now),
-            health=data.get("health"),
-            mental=data.get("mental"),
-            target_distance=data.get("target_distance", -1),
+            captured_at=captured_at,
+            health=float(h) if h is not None else -1.0,
+            mental=float(m) if m is not None else -1.0,
+            target_distance=int(d) if d is not None else -1,
             target_box=target_box,
             resurrection_box=resurrection_box,
-            active_buff_codes=frozenset(data.get("active_buff_codes", [])),
-            errors=tuple(data.get("errors", [])),
+            active_buff_codes=frozenset(buffs) if buffs is not None else frozenset(),
+            errors=tuple(errs) if errs is not None else (),
         )
 
     def update_perception(self, now: float) -> bool:
         check_vitals = (now - self._last_vitals_time) > 2
-        check_resurrection = (now - self._last_resurrection_time) > 5.0
+        check_resurrection = (not self.state.has_target) and (now - self._last_resurrection_time) > 5.0
 
         try:
             snapshot = self._fetch_perception_data(
@@ -173,22 +186,8 @@ class BotRunner:
         if check_vitals:
             self._last_vitals_time = now
 
-        if snapshot.target_box:
-            self._cached_resurrection = None
-        else:
-            if check_resurrection:
-                self._cached_resurrection = snapshot.resurrection_box
-                self._last_resurrection_time = now
-
-        try:
-            from dataclasses import replace
-
-            snapshot = replace(
-                snapshot,
-                resurrection_box=self._cached_resurrection,
-            )
-        except TypeError:
-            snapshot.resurrection_box = self._cached_resurrection
+        if check_resurrection:
+            self._last_resurrection_time = now
 
         self.state.apply_perception(snapshot)
         console.set_err_msg(" | ".join(snapshot.errors))
