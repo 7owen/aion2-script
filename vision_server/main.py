@@ -8,8 +8,9 @@ import cv2
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from image_engine import ImageEngine
 from pydantic import BaseModel
+
+from image_engine import ImageEngine
 from video_capture import VideoCapture
 
 # 共享状态与锁
@@ -125,6 +126,10 @@ async def generate_frames():
         if frame is None:
             await asyncio.sleep(0.1)
             continue
+
+        if _engine:
+            # 仅展示待 OCR 识别的图像拼接（经过反转+放大处理）
+            frame = _engine.get_ocr_debug_frame(frame)
 
         ret, buffer = cv2.imencode(".jpg", frame)
         if not ret:

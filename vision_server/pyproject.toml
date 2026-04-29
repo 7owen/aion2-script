@@ -16,6 +16,7 @@ dependencies = [
     "pydantic>=2.6.0",
     "rapidocr>=3.8.1",
     "onnxruntime>=1.25.1",
+    "openvino>=2026.1.0",
 ]
 
 [[tool.uv.index]]

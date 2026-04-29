@@ -51,22 +51,24 @@ class RapidOcrEngine:
                 params={
                     "Global.use_det": False,
                     "Global.use_cls": False,
-                    "Global.text_score": 0.5,
-                    # "Rec.engine_type": EngineType.ONNXRUNTIME,
-                    # "Rec.lang_type": LangDet.EN,
+                    "Global.text_score": 0.65,
+                    "Rec.engine_type": EngineType.OPENVINO,
+                    "Rec.lang_type": LangDet.EN,
                     # "Rec.model_type": ModelType.MOBILE,
-                    # "Rec.ocr_version": OCRVersion.PPOCRV5,
+                    "Rec.ocr_version": OCRVersion.PPOCRV5,
+                    "EngineConfig.openvino": {
+                        "inference_num_threads": 4,
+                        "num_streams": 1,
+                    },
                 }
             )
 
-            print("RapidOCR 3.0+ 初始化成功 (N4100 多核模式): 默认中英文版")
+            print("RapidOCR 3.0+ 初始化成功")
         except ImportError as e:
             print(f">>> 错误: {e}。请执行 `pip install rapidocr>=3.0.0`")
             raise e
 
-    def readtext(
-        self, image, detail: int = 0, allowlist: Optional[str] = None
-    ) -> List[str]:
+    def readtext(self, image, allowlist: Optional[str] = None) -> List[str]:
         # RapidOCR 3.0+ 输入为 numpy array 或 PIL Image
         # 对于已经裁剪好的小图，禁用文字检测 (det=False) 和方向分类 (cls=False) 可以极大提高速度
         result = None
@@ -80,9 +82,16 @@ class RapidOcrEngine:
             if not hasattr(result, "txts") or not result.txts:
                 return []
 
-            # 直接拼接所有识别到的文本
-            text = "".join(result.txts)
-            print(text)
+            # 过滤置信度大于 0.65 的文本
+            filtered_txts = [
+                txt for txt, score in zip(result.txts, result.scores) if score > 0.7
+            ]
+            print(f"[OCR] Filtered: {filtered_txts}, Scores: {result.scores}")
+
+            if not filtered_txts:
+                return []
+
+            text = "".join(filtered_txts)
             if allowlist:
                 text = "".join([c for c in text if c in allowlist])
 
@@ -98,7 +107,5 @@ class OcrReaderWrapper:
     def __init__(self, ocr_config: OcrConfig):
         self.engine = RapidOcrEngine(ocr_config)
 
-    def readtext(
-        self, image, detail: int = 0, allowlist: Optional[str] = None
-    ) -> List[str]:
-        return self.engine.readtext(image, detail=detail, allowlist=allowlist)
+    def readtext(self, image, allowlist: Optional[str] = None) -> List[str]:
+        return self.engine.readtext(image, allowlist=allowlist)

@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
+import numpy as np
+
 from bot_config import OcrRegionConfig, Rect, TemplateMatchConfig, config
 from ocr_reader import OcrReaderWrapper
 
@@ -188,7 +190,7 @@ class ImageEngine:
     def _extract_text_via_ocr(self, pic, parse_spec: OcrParseSpec):
         """统一 OCR 处理流程。"""
         t_pre_start = time.perf_counter()
-        processed_pic = self._preprocess_image_for_ocr(pic, binarize=False)
+        processed_pic = self._preprocess_image_for_ocr(pic)
         t_pre_end = time.perf_counter()
         if processed_pic is None:
             return None, f">>> {parse_spec.window_name} OCR 处理失败，预处理图片失败"
@@ -201,7 +203,6 @@ class ImageEngine:
             t_ocr_start = time.perf_counter()
             ocr_result = self.ocr_reader.readtext(
                 processed_pic,
-                detail=0,
                 allowlist=parse_spec.allowlist,
             )
             t_ocr_end = time.perf_counter()
@@ -220,21 +221,21 @@ class ImageEngine:
         except Exception as exc:
             return None, f">>> {parse_spec.window_name} OCR 处理出错: {exc}"
 
-    def _preprocess_image_for_ocr(self, pic, fx=2, fy=2, binarize=False):
+    def _preprocess_image_for_ocr(self, pic, fx=3, fy=3):
         if pic is None or pic.size == 0:
             return None
 
-        # 回归 CPU 处理，避免小图搬运开销
+        # 1. 先转灰度（此时图最小，处理最快）
         gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
-        zoomed = cv2.resize(gray, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
-        processed = cv2.bitwise_not(zoomed)
 
-        if binarize:
-            _, processed = cv2.threshold(
-                processed, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
-            )
+        # 2. 在单通道上做反转
+        inverted = cv2.bitwise_not(gray)
 
-        return processed
+        # 3. 在单通道上做放大（插值计算量减少 2/3）
+        zoomed = cv2.resize(inverted, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
+
+        # 4. 最后转回 BGR 格式以兼容 RapidOCR 接口要求
+        return cv2.cvtColor(zoomed, cv2.COLOR_GRAY2BGR)
 
     def _perfect_match_and_locate(
         self,
@@ -302,8 +303,8 @@ class ImageEngine:
         min_val, _, min_loc, _ = cv2.minMaxLoc(result)
         dt = (time.perf_counter() - t0) * 1000
         if dt > 1.0:  # 只有大于1ms的才打印，证明在大图或复杂匹配下的开销
-            print(f"[PERF] matchTemplate took: {dt:.2f}ms")
-            # pass
+            # print(f"[PERF] matchTemplate took: {dt:.2f}ms")
+            pass
         if debug:
             print(f"像素匹配最小归一化误差: {min_val:.8f}")
 
@@ -385,8 +386,8 @@ class ImageEngine:
                 health = None
             # mental, mental_error = self.get_mental_value(frame)
             # if mental_error is not None:
-                # errors.append(mental_error)
-                # mental = None
+            # errors.append(mental_error)
+            # mental = None
 
         if target_box:
             if check_target_distance:
@@ -491,3 +492,64 @@ class ImageEngine:
             skill_status_frame,
         )
         return ret is not None
+
+    def get_ocr_debug_frame(self, frame) -> np.ndarray:
+        """获取所有 OCR 区域预处理后的拼接图像，用于调试。"""
+        # 定义需要显示的 OCR 任务区域
+        regions = [
+            ("Health", self.health_spec),
+            ("Mental", self.mental_spec),
+        ]
+
+        # 如果有目标，增加距离显示
+        target_box = self.get_target_box(frame)
+        if target_box:
+            dist_rect = self._get_distance_box(target_box)
+            dist_spec = OcrRegionSpec(
+                rect=Rect(*dist_rect), parse_spec=self.distance_parse_spec
+            )
+            regions.append(("Distance", dist_spec))
+
+        processed_pics = []
+        for name, spec in regions:
+            rect = spec.rect
+            # 裁剪原始区域
+            pic = self._crop_image(frame, rect.x1, rect.y1, rect.x2, rect.y2)
+            # 运行你在 _preprocess_image_for_ocr 中定义的反转+放大逻辑
+            processed = self._preprocess_image_for_ocr(pic)
+
+            # 在图像上方绘制标签以便识别
+            h, w = processed.shape[:2]
+            # 创建一个稍微大一点的画布来放文字
+            canvas = np.zeros((h + 30, w, 3), dtype=np.uint8)
+            cv2.putText(
+                canvas,
+                name,
+                (5, 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 0),
+                1,
+                cv2.LINE_AA,
+            )
+            canvas[30:, :] = processed
+            processed_pics.append(canvas)
+
+        if not processed_pics:
+            # 如果没有任何区域，返回一张黑图
+            return np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # 将所有图片垂直拼接在一起
+        # 统一宽度以方便拼接
+        max_w = max(p.shape[1] for p in processed_pics)
+        resized_pics = []
+        for p in processed_pics:
+            if p.shape[1] < max_w:
+                # 填充黑色背景
+                padded = np.zeros((p.shape[0], max_w, 3), dtype=np.uint8)
+                padded[:, : p.shape[1]] = p
+                resized_pics.append(padded)
+            else:
+                resized_pics.append(p)
+
+        return np.vstack(resized_pics)
