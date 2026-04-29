@@ -14,7 +14,7 @@ Box = tuple[int, int, int, int]
 
 @dataclass(frozen=True, slots=True)
 class PerceptionSnapshot:
-    captured_at: float = field(default_factory=time.monotonic)
+    captured_at: float = field(default_factory=time.time)
     health: float | None = None
     mental: float | None = None
     target_box: Box | None = None
@@ -232,7 +232,9 @@ class ImageEngine:
         inverted = cv2.bitwise_not(gray)
 
         # 3. 在单通道上做放大（插值计算量减少 2/3）
-        zoomed = cv2.resize(inverted, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
+        zoomed = cv2.resize(
+            inverted, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC
+        )
 
         # 4. 最后转回 BGR 格式以兼容 RapidOCR 接口要求
         return cv2.cvtColor(zoomed, cv2.COLOR_GRAY2BGR)
@@ -364,7 +366,7 @@ class ImageEngine:
         check_resurrection: bool = True,
         check_target_distance: bool = True,
     ) -> PerceptionSnapshot:
-        now = time.monotonic()
+        now = time.time()
         errors: list[str] = []
         active_buffs: set[str] = set()
         target_box = self.get_target_box(frame)
