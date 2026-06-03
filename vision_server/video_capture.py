@@ -9,10 +9,14 @@ warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
 
 class VideoCapture:
-    def __init__(self) -> None:
+    def __init__(self, camera_index: int | None = None) -> None:
         self.config = config.video
+        # 优先使用传入的 camera_index，否则使用配置中的默认值
+        actual_index = (
+            camera_index if camera_index is not None else self.config.camera_index
+        )
         self.cap = self.create_cap(
-            camera_index=self.config.camera_index,
+            camera_index=actual_index,
             frame_width=self.config.frame_width,
             frame_height=self.config.frame_height,
         )

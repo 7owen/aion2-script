@@ -50,13 +50,13 @@ class RoleSwordStar(Role):
         if self.is_casting():
             return
 
-        self.skills[SKILL_RUILIYIJI].use(target)
+        # self.skills[SKILL_RUILIYIJI].use(target)
         # self.player_action.hold_normal_fight_key()
-        _ = (
-            self.skills[SKILL_QIANGXIYIJI].use(target)
-            or self.skills[SKILL_POMIEMENGJI].use(target)
-            or self.skills[SKILL_TIAOYUEGONGJI].use(target)
-        )
+        # _ = (
+        #     self.skills[SKILL_QIANGXIYIJI].use(target)
+        #     or self.skills[SKILL_POMIEMENGJI].use(target)
+        #     or self.skills[SKILL_TIAOYUEGONGJI].use(target)
+        # )
 
     def end_fight(self, target: Target) -> None:
         pass
@@ -83,9 +83,13 @@ class RoleSwordStar(Role):
             return False
 
         skills_to_use = [
-            self.skills[SKILL_XIAPANJI].use,
             self.skills[SKILL_KONGZHONGJIEFU].use,
+            self.skills[SKILL_XIAPANJI].use,
             self.skills[SKILL_JIAOHUAIZHAN].use,
+            self.skills[SKILL_QIANGXIYIJI].use,
+            self.skills[SKILL_POMIEMENGJI].use,
+            self.skills[SKILL_TIAOYUEGONGJI].use,
+            com_skill_q2,
         ]
         skills_to_use2 = [
             self.skills[SKILL_FENSUIBODONG].use,
@@ -93,7 +97,6 @@ class RoleSwordStar(Role):
             self.skills[SKILL_FENNUBODONG].use,
             self.skills[SKILL_JINUBAOZHA].use,
             self.skills[SKILL_ROULINJIAN].use,
-            com_skill_q2,
         ]
         random.shuffle(skills_to_use2)
         skills_to_use2.append(self.skills[SKILL_ZHANDUANMENGJI].use)

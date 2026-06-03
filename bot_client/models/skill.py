@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import time
 from typing import TYPE_CHECKING
 
@@ -49,12 +50,14 @@ class Skill:
         if not self.ready():
             return False
 
-        if (
-            target
-            and self.metadata.max_range is not None
-            and not (0 <= target.distance <= self.metadata.max_range)
-        ):
-            return False
+        if target:
+            if target.distance < self.metadata.min_range:
+                return False
+            if (
+                self.metadata.max_range is not None
+                and target.distance > self.metadata.max_range
+            ):
+                return False
 
         if not self.metadata.require_buff_codes:
             return True
@@ -73,6 +76,8 @@ class Skill:
             return False
 
         used_at = time.monotonic()
+
+        print(f"[{used_at:.3f}] 释放技能: {self.name} ({self.code})")
         self.last_used_at = used_at
         self.for_role.action_end_at = used_at + self.metadata.time_consumption
 
@@ -82,22 +87,38 @@ class Skill:
                 time.sleep(self.metadata.press_interval)
 
         # for bc in self.metadata.require_buff_codes:
+        #     if self.for_role.is_active_buff(bc):
+        #         print(f"[{used_at:.3f}] 消费 Buff: {bc} (来源: 自身)")
         #     self.for_role.consume_buff(bc)
         #     if target:
+        #         if target.is_active_buff(bc):
+        #             print(f"[{used_at:.3f}] 消费 Buff: {bc} (来源: 目标)")
         #         target.consume_buff(bc)
 
         # 4. 生成 Buff
         if self.metadata.generate_buff_codes:
             for bc in self.metadata.generate_buff_codes:
-                now = time.monotonic()
-                self.for_role.active_buff(bc, now)
+                self.for_role.active_buff(bc, self.for_role.action_end_at)
                 if target is not None:
-                    target.active_buff(bc, now)
+                    target.active_buff(bc, self.for_role.action_end_at)
 
         return True
 
     def _press_once(self) -> None:
+        """底层封装的单次释放技能逻辑，可根据配置执行两次按键防吞"""
+        # 第一次按下
         if self.metadata.press_holdon is not None:
             self.kmDriver.key_press(self.metadata.key, self.metadata.press_holdon)
         else:
             self.kmDriver.key_press(self.metadata.key)
+
+        # 如果启用了防吞键机制，则执行第二次按下
+        if self.metadata.anti_swallow:
+            # 延迟 0.1 秒
+            time.sleep(0.1)
+
+            # 第二次按下，防动画卡键或丢包
+            if self.metadata.press_holdon is not None:
+                self.kmDriver.key_press(self.metadata.key, self.metadata.press_holdon)
+            else:
+                self.kmDriver.key_press(self.metadata.key)

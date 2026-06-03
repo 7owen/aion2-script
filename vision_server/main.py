@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import threading
 import time
@@ -31,6 +32,10 @@ class PerceptionResponse(BaseModel):
     errors: list[str]
 
 
+class ItemStatusResponse(BaseModel):
+    is_open: bool
+
+
 def frame_grabber_loop():
     """后台独立线程：仅执行硬件级别的帧抓取(grab)，清空缓冲区且不耗费CPU解码"""
     global _running
@@ -54,8 +59,10 @@ async def lifespan(app: FastAPI):
 
     # 初始化视频捕获
     try:
-        _video_capture = VideoCapture()
-        print("Camera initialized successfully.")
+        # 从 app.state 获取 camera_index
+        camera_index = getattr(app.state, "camera_index", None)
+        _video_capture = VideoCapture(camera_index=camera_index)
+        print(f"Camera initialized successfully (index={camera_index}).")
     except Exception as e:
         print(f"Failed to initialize camera: {e}")
 
@@ -75,7 +82,10 @@ app = FastAPI(title="Vision Perception Server", lifespan=lifespan)
 
 
 @app.get("/api/perception", response_model=PerceptionResponse)
-def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
+def get_perception(
+    check_vitals: bool = True,
+    check_resurrection: bool = True,
+):
     """
     当客户端（Bot）请求时，拿出最新的一帧进行推理分析。
     """
@@ -110,6 +120,26 @@ def get_perception(check_vitals: bool = True, check_resurrection: bool = True):
     )
     # print(f">>> API Response: {resp.model_dump_json()}")
     return resp
+
+
+@app.get("/api/ui/item_status", response_model=ItemStatusResponse)
+def get_item_ui_status():
+    """
+    判断物品界面是否打开。
+    """
+    global _engine, _video_capture
+
+    if _engine is None or _video_capture is None:
+        raise HTTPException(status_code=503, detail="Services not fully initialized")
+
+    with _camera_lock:
+        frame_to_process = _video_capture.retrieve_frame()
+
+    if frame_to_process is None:
+        raise HTTPException(status_code=503, detail="No video frame available")
+
+    is_open = _engine.has_item_icon(frame_to_process)
+    return ItemStatusResponse(is_open=is_open)
 
 
 async def generate_frames():
@@ -154,4 +184,13 @@ def video_stream():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    parser = argparse.ArgumentParser(description="Vision Perception Server")
+    parser.add_argument(
+        "--camera-index", type=int, default=None, help="Camera index to use"
+    )
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind")
+    args = parser.parse_args()
+
+    app.state.camera_index = args.camera_index
+    uvicorn.run(app, host=args.host, port=args.port, reload=False)

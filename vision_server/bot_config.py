@@ -97,6 +97,13 @@ class VisionConfig:
         )
     )
 
+    item_icon_match: TemplateMatchConfig = field(
+        default_factory=lambda: TemplateMatchConfig(
+            path=os.path.join(BASE_DIR, "images", "item_icon.png"),
+            tolerance=0.1,
+        )
+    )
+
     # 技能状态与目标距离估算区域
     liweijian_region: Rect = field(default_factory=lambda: Rect(1257, 466, 1329, 538))
     target_distance_box: RelativeRect = field(

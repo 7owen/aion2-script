@@ -112,7 +112,7 @@ class KmboxDriver:
         client = self._ensure_client()
         x = random.choice([-1, 1])
         client.enc_mouse_move_auto(
-            x * (self.screen_width + 1), -10, int(random.uniform(500, 1000))
+            x * (self.screen_width + 1), -100, int(random.uniform(1000, 1500))
         )
         self.mouse_x = 0 if x == -1 else self.screen_width
         self.mouse_y = 0

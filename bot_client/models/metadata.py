@@ -33,17 +33,20 @@ class SkillMetadata(GameEntity):
         name: str,
         key: int,
         cooldown: float = 0.0,
+        min_range: int = 0,
         max_range: int | None = None,
         time_consumption: float = 0.5,
         press_holdon: float | None = None,
         press_count: int = 1,
-        press_interval: float = 0.3,
+        press_interval: float = 0.5,
         require_buff_codes: list[str] = [],
         generate_buff_codes: list[str] = [],
+        anti_swallow: bool = False,
     ):
         super().__init__(code=code, name=name)
         self.key = key
         self.cooldown = cooldown
+        self.min_range = min_range
         self.max_range = max_range
         self.time_consumption = time_consumption
         self.press_holdon = press_holdon
@@ -51,3 +54,4 @@ class SkillMetadata(GameEntity):
         self.press_interval = press_interval
         self.require_buff_codes = require_buff_codes
         self.generate_buff_codes = generate_buff_codes
+        self.anti_swallow = anti_swallow

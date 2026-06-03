@@ -165,6 +165,7 @@ class ImageEngine:
             ),
             "liweijian": self._load_template(config.vision.liweijian_icon_match),
             "jiaohuaizhan": self._load_template(config.vision.jiaohuaizhan_icon_match),
+            "item": self._load_template(config.vision.item_icon_match),
         }
         if self.target_detection_mode == "template":
             templates["target"] = self._load_template(
@@ -232,9 +233,7 @@ class ImageEngine:
         inverted = cv2.bitwise_not(gray)
 
         # 3. 在单通道上做放大（插值计算量减少 2/3）
-        zoomed = cv2.resize(
-            inverted, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC
-        )
+        zoomed = cv2.resize(inverted, None, fx=fx, fy=fy, interpolation=cv2.INTER_CUBIC)
 
         # 4. 最后转回 BGR 格式以兼容 RapidOCR 接口要求
         return cv2.cvtColor(zoomed, cv2.COLOR_GRAY2BGR)
@@ -476,6 +475,16 @@ class ImageEngine:
             # 匹配结果是相对于裁剪区域的，需要将 y 坐标平移回全屏坐标系
             return self._translate_box(res, 0, y1)
         return None
+
+    def has_item_icon(self, frame) -> bool:
+        """在指定区域 [100, 100, 200, 200] 内判断物品图标是否存在。"""
+        x1, y1, x2, y2 = 1700, 65, 1740, 85
+        crop = self._crop_image(frame, x1, y1, x2, y2)
+        if crop is None:
+            return False
+
+        res = self._perfect_match_and_locate(self.templates["item"], crop, debug=True)
+        return res is not None
 
     def is_liweijian_valid(self, frame):
         rect = config.vision.liweijian_region

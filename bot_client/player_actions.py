@@ -1,17 +1,24 @@
+from __future__ import annotations
+
 import random
 import time
+from typing import TYPE_CHECKING
 
 import kmbox_net
 
 from console import console as console
 from km_driver import KmboxDriver
 
+if TYPE_CHECKING:
+    from vision_client import VisionClient
+
 
 class PlayerActions:
     """处理不区分职业的通用控制与交互动作。"""
 
-    def __init__(self, km_driver: KmboxDriver):
+    def __init__(self, km_driver: KmboxDriver, vision_client: VisionClient):
         self.kmDriver = km_driver
+        self.vision_client = vision_client
 
         self.move_keys = [
             kmbox_net.KEY_A,
@@ -63,9 +70,9 @@ class PlayerActions:
         self.kmDriver.mouse_left(False)
 
     def searching_enemy(self) -> None:
-        self.kmDriver.key_press(kmbox_net.KEY_TAB)
-        # self.kmDriver.key_press(kmbox_net.KEY_R)
-        time.sleep(0.3)
+        # self.kmDriver.key_press(kmbox_net.KEY_TAB)
+        self.kmDriver.key_press(kmbox_net.KEY_R)
+        time.sleep(0.5)
 
     def hold_normal_fight_key(self) -> None:
         self.kmDriver.key_down(kmbox_net.KEY_R)
@@ -77,8 +84,27 @@ class PlayerActions:
         self.kmDriver.key_press(kmbox_net.KEY_TAB)
         time.sleep(0.3)
 
-    def click_inventory(self) -> None:
-        self.kmDriver.key_press(kmbox_net.KEY_I)
+    def open_inventory(self) -> None:
+        """打开背包，如果没打开则重试"""
+        for i in range(3):
+            self.kmDriver.key_press(kmbox_net.KEY_I)
+            time.sleep(1)
+            if self.vision_client.check_item_status():
+                return
+
+        if not self.vision_client.check_item_status():
+            print("警告：尝试 3 次后背包仍未打开。")
+
+    def close_inventory(self) -> None:
+        """关闭背包，如果没关闭则重试"""
+        for i in range(3):
+            self.kmDriver.key_press(kmbox_net.KEY_I)
+            time.sleep(1)
+            if not self.vision_client.check_item_status():
+                return
+
+        if self.vision_client.check_item_status():
+            print("警告：尝试 3 次后背包仍未关闭。")
 
     def reset_mouse(self) -> None:
         self.kmDriver.mouse_reset()
@@ -100,32 +126,31 @@ class PlayerActions:
         self.reset_mouse()
         # self.press_escape()
         # time.sleep(random.random())
-        self.click_inventory()
         time.sleep(random.random())
+        self.open_inventory()
         self.move_mouse_to(
-            random.randint(1735, 1785),
-            random.randint(1025, 1060),
+            random.randint(1740, 1780),
+            random.randint(1030, 1055),
+            1,
+        )
+        self.click_left()
+        time.sleep(random.random() + 0.5)
+        self.move_mouse_to(
+            random.randint(1620, 1715),
+            random.randint(977, 993),
             0.5,
         )
         self.click_left()
         time.sleep(random.random())
-        self.move_mouse_to(
-            random.randint(1616, 1720),
-            random.randint(972, 998),
-            0.3,
-        )
-        time.sleep(random.random())
-        self.click_left()
-        time.sleep(random.random())
         self.press_confirm()
         time.sleep(random.random())
         self.press_confirm()
         # time.sleep(random.random())
-        time.sleep(2)
+        time.sleep(random.random() + 1.5)
         self.press_confirm()
         # time.sleep(random.random())
-        time.sleep(1)
-        self.click_inventory()
+        time.sleep(random.random())
+        self.close_inventory()
         # self.press_escape()
         time.sleep(random.random())
         self.move_mouse_to_center()

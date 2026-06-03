@@ -24,19 +24,19 @@ def _env_enum(name: str, enum_type, default):
         return default
 
 
-@dataclass(frozen=True)
+@dataclass
 class VisionServerConfig:
     """视觉服务 (Vision Server) 连接配置。"""
 
-    base_url: str = "http://10.0.24.116:8000"
+    base_url: str = "http://127.0.0.1:8000"
 
 
-@dataclass(frozen=True)
+@dataclass
 class RuntimeConfig:
     """机器人运行时的控制参数。"""
 
     max_try_combat_count: int = 3  # 单次战斗尝试的最大次数
-    max_ops_per_second: float = 2  # 每秒允许的最大操作频率（防止动作过快被检测）
+    max_ops_per_second: float = 3  # 每秒允许的最大操作频率（防止动作过快被检测）
 
 
 class RoleType(Enum):
@@ -49,7 +49,7 @@ class StrategyType(Enum):
     MINING = "mining"
 
 
-@dataclass(frozen=True)
+@dataclass
 class ModeConfig:
     """运行模式选择。"""
 
@@ -57,8 +57,8 @@ class ModeConfig:
         default_factory=lambda: _env_enum(
             "BOT_ROLE_TYPE",
             RoleType,
-            RoleType.BOWSTAR,
-            # RoleType.SWORDSTAR,
+            # RoleType.BOWSTAR,
+            RoleType.SWORDSTAR,
         )
     )
     strategy_type: StrategyType = field(
@@ -70,7 +70,7 @@ class ModeConfig:
     )
 
 
-@dataclass(frozen=True)
+@dataclass
 class RoleConfig:
     """角色相关的行为配置。"""
 
@@ -79,7 +79,7 @@ class RoleConfig:
     close_distance_threshold: int = 4  # 与目标距离低于此值时视为进入近战范围
 
 
-@dataclass(frozen=True)
+@dataclass
 class KmboxConfig:
     """Kmbox B+ 网络版硬件控制配置。"""
 
@@ -103,7 +103,7 @@ class KmboxConfig:
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class BotConfig:
     """机器人完整配置汇总。"""
 

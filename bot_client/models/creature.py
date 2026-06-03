@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import time
 
 from .buff import Buff
@@ -17,7 +18,7 @@ class Creature:
         self.action_end_at: float = 0.0
 
     def is_casting(self) -> bool:
-        return time.monotonic() < self.action_end_at
+        return time.monotonic() <= self.action_end_at
 
     def is_active_buff(self, buff_code: str) -> bool:
         return buff_code in self.buffs and self.buffs[buff_code].is_activated()
@@ -26,10 +27,13 @@ class Creature:
         if buff_code in self.buffs:
             self.buffs[buff_code].clear()
 
-    def active_buff(self, buff_code: str, now: float) -> None:
+    def active_buff(self, buff_code: str, start_time: float) -> None:
         """添加或更新一个 Buff"""
         if buff_code in self.buffs:
-            self.buffs[buff_code].activate(now)
+            # 打印当前代码执行的时间戳，以保持日志顺序的一致性
+            print(f"[{time.monotonic():.3f}] 更新 Buff: {self.buffs[buff_code].name}")
+            # 使用传入的 start_time（可能是当前、过去或未来）作为 Buff 的起始时间
+            self.buffs[buff_code].activate(start_time)
 
     def clear_buffs(self) -> None:
         for buff in self.buffs.values():

@@ -30,6 +30,7 @@ class Buff:
         self.expires_at = self.start_time + self.metadata.duration
 
     def is_activated(self) -> bool:
+        # return self.start_time <= time.monotonic() < self.expires_at
         return time.monotonic() < self.expires_at
 
     def clear(self) -> None:

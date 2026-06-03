@@ -62,10 +62,10 @@ class RoleBowStar(Role):
         if self.is_casting():
             return
 
-        self.skills[SKILL_JUJI].use()
-        _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
-            SKILL_TAOSUOJIAN
-        ].use(target)
+        # self.skills[SKILL_JUJI].use()
+        # _ = self.skills[SKILL_JIANSHIFENGBAO].use(target) or self.skills[
+        #     SKILL_TAOSUOJIAN
+        # ].use(target)
 
     def end_fight(self, target: Target) -> None:
         pass
@@ -94,6 +94,8 @@ class RoleBowStar(Role):
             self.skills[SKILL_YAZHIJIAN].use,
             self.skills[SKILL_POLIEJIAN].use,
             self.skills[SKILL_MIAOZHUNJIAN].use,
+            self.skills[SKILL_JIANSHIFENGBAO].use,
+            self.skills[SKILL_TAOSUOJIAN].use,
             self.skills[SKILL_MUBIAOJIAN].use,
         ]
 
